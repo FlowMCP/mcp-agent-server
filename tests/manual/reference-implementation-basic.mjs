@@ -21,7 +21,7 @@ import { AgentToolsServer } from '../../src/index.mjs'
 const app = express()
 app.use( express.json() )
 
-const server = await AgentToolsServer.create( {
+const { mcp } = await AgentToolsServer.create( {
     name: 'Test Agent Server',
     version: '1.0.0',
     routePath: '/mcp',
@@ -60,7 +60,7 @@ const server = await AgentToolsServer.create( {
     ]
 } )
 
-app.use( server.middleware() )
+app.use( mcp.middleware() )
 
 const port = 4100
 

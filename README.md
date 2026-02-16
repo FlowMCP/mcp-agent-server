@@ -32,7 +32,7 @@ import { AgentToolsServer } from 'mcp-agent-server'
 const app = express()
 app.use( express.json() )
 
-const server = await AgentToolsServer.create( {
+const { mcp } = await AgentToolsServer.create( {
     name: 'My Agent Server',
     version: '1.0.0',
     routePath: '/mcp',
@@ -71,7 +71,7 @@ const server = await AgentToolsServer.create( {
     ]
 } )
 
-app.use( server.middleware() )
+app.use( mcp.middleware() )
 app.listen( 4100 )
 ```
 
@@ -101,7 +101,7 @@ app.listen( 4100 )
 
 ### `AgentToolsServer.create()`
 
-Creates a new server instance from configuration.
+Creates a new MCP server instance from configuration.
 
 **Method**
 
@@ -122,7 +122,7 @@ AgentToolsServer.create( { name, version, routePath, llm, tools, tasks } )
 
 ```javascript
 // AgentToolsServer instance
-const server = await AgentToolsServer.create( { /* config */ } )
+const { mcp } = await AgentToolsServer.create( { /* config */ } )
 ```
 
 ### `.middleware()`
@@ -132,14 +132,14 @@ Returns an Express middleware function that handles MCP protocol requests (POST/
 **Method**
 
 ```
-server.middleware()
+mcp.middleware()
 ```
 
 **Returns**
 
 ```javascript
 // Express middleware function (req, res, next) => Promise<void>
-app.use( server.middleware() )
+app.use( mcp.middleware() )
 ```
 
 ### `.listToolDefinitions()`
@@ -149,13 +149,13 @@ Returns all registered tools in MCP ListTools format.
 **Method**
 
 ```
-server.listToolDefinitions()
+mcp.listToolDefinitions()
 ```
 
 **Returns**
 
 ```javascript
-const { tools } = server.listToolDefinitions()
+const { tools } = mcp.listToolDefinitions()
 // tools: [ { name, description, inputSchema, execution? } ]
 ```
 
@@ -213,8 +213,8 @@ const x402 = await X402Middleware.create( { /* config */ } )
 app.use( x402.mcp() )
 
 // 2. Agent MCP Server
-const agent = await AgentToolsServer.create( { /* config */ } )
-app.use( agent.middleware() )
+const { mcp } = await AgentToolsServer.create( { /* config */ } )
+app.use( mcp.middleware() )
 
 app.listen( 4100 )
 ```

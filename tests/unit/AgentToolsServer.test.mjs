@@ -147,10 +147,10 @@ describe( 'AgentToolsServer', () => {
 
 
     describe( 'create', () => {
-        test( 'creates middleware instance with config', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
+        test( 'returns mcp instance in object', async () => {
+            const { mcp } = await AgentToolsServer.create( testConfig )
 
-            expect( middleware ).toBeDefined()
+            expect( mcp ).toBeDefined()
         } )
 
 
@@ -158,18 +158,18 @@ describe( 'AgentToolsServer', () => {
             const configWithoutRoute = { ...testConfig }
             delete configWithoutRoute.routePath
 
-            const middleware = await AgentToolsServer.create( configWithoutRoute )
+            const { mcp } = await AgentToolsServer.create( configWithoutRoute )
 
-            expect( middleware ).toBeDefined()
+            expect( mcp ).toBeDefined()
         } )
     } )
 
 
     describe( 'listToolDefinitions', () => {
         test( 'returns all configured tools', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
+            const { mcp } = await AgentToolsServer.create( testConfig )
 
-            const { tools } = middleware.listToolDefinitions()
+            const { tools } = mcp.listToolDefinitions()
 
             expect( tools ).toHaveLength( 2 )
             expect( tools[ 0 ].name ).toBe( 'test-research' )
@@ -178,9 +178,9 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'includes execution property for tools that have it', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
+            const { mcp } = await AgentToolsServer.create( testConfig )
 
-            const { tools } = middleware.listToolDefinitions()
+            const { tools } = mcp.listToolDefinitions()
             const researchTool = tools
                 .find( ( t ) => t.name === 'test-research' )
 
@@ -191,17 +191,17 @@ describe( 'AgentToolsServer', () => {
 
     describe( 'middleware', () => {
         test( 'returns a middleware function', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
+            const { mcp } = await AgentToolsServer.create( testConfig )
 
-            const mcpMiddleware = middleware.middleware()
+            const mcpMiddleware = mcp.middleware()
 
             expect( typeof mcpMiddleware ).toBe( 'function' )
         } )
 
 
         test( 'calls next for non-matching paths', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = { path: '/other', method: 'POST' }
             const res = {}
@@ -214,8 +214,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'handles POST initialize request', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',
@@ -241,8 +241,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'registers four request handlers on MCP Server', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',
@@ -270,8 +270,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'returns 400 for POST without session and non-initialize body', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',
@@ -299,8 +299,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'returns 400 for GET without valid session', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',
@@ -320,8 +320,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'returns 400 for DELETE without valid session', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',
@@ -341,8 +341,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'calls next for unsupported HTTP methods on route', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',
@@ -360,8 +360,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'ListTools handler returns all tools', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',
@@ -390,8 +390,8 @@ describe( 'AgentToolsServer', () => {
 
 
         test( 'CallTool handler returns error for unknown tool', async () => {
-            const middleware = await AgentToolsServer.create( testConfig )
-            const mcpMiddleware = middleware.middleware()
+            const { mcp } = await AgentToolsServer.create( testConfig )
+            const mcpMiddleware = mcp.middleware()
 
             const req = {
                 path: '/mcp',

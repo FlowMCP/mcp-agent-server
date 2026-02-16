@@ -34,14 +34,14 @@ class AgentToolsServer {
         const taskStore = tasks.store || null
         const taskManager = new TaskManager( { taskStore } )
 
-        const middleware = new AgentToolsServer( {
+        const mcp = new AgentToolsServer( {
             config,
             llmConfig,
             toolRegistry: registry,
             taskManager
         } )
 
-        return middleware
+        return { mcp }
     }
 
 
