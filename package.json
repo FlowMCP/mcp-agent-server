@@ -7,7 +7,8 @@
     "scripts": {
         "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
         "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
-        "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest"
+        "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest",
+        "test:agentprobe": "node tests/manual/agentprobe-test.mjs"
     },
     "author": "FlowMCP",
     "license": "MIT",
