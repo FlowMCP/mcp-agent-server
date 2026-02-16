@@ -1,0 +1,285 @@
+import Anthropic from '@anthropic-ai/sdk'
+
+
+class AgentLoop {
+    static async start( { query, toolClient, systemPrompt, model, maxRounds = 10, maxTokens = 4096, onStatus, baseURL, apiKey, answerSchema = null } ) {
+        const startTime = Date.now()
+        let totalInputTokens = 0
+        let totalOutputTokens = 0
+        const toolCallLog = []
+
+        const { tools: clientTools } = await toolClient.listTools()
+
+        const anthropicTools = clientTools
+            .map( ( tool ) => {
+                const { name, description, inputSchema } = tool
+
+                return { name, description, input_schema: inputSchema }
+            } )
+
+        const answerToolName = 'submit_answer'
+        const { answerTool } = AgentLoop.#buildAnswerTool( { answerToolName, answerSchema } )
+        const allTools = [ ...anthropicTools, answerTool ]
+
+        const messages = [
+            { role: 'user', content: query }
+        ]
+
+        const clientConfig = {}
+        if( baseURL ) { clientConfig.baseURL = baseURL }
+        if( apiKey ) { clientConfig.apiKey = apiKey }
+
+        const anthropic = new Anthropic( clientConfig )
+        let round = 0
+        let running = true
+        let hasRequestedSubmit = false
+
+        if( onStatus ) { onStatus( { status: 'working', round, message: 'Agent loop started' } ) }
+
+        do {
+            round++
+
+            if( round > maxRounds ) {
+                messages.push( {
+                    role: 'user',
+                    content: `You have reached the maximum number of rounds. Call ${answerToolName} now with your analysis based on all data gathered so far.`
+                } )
+            }
+
+            const response = await anthropic.messages.create( {
+                model,
+                max_tokens: maxTokens,
+                system: systemPrompt,
+                tools: allTools,
+                messages
+            } )
+
+            totalInputTokens += response.usage.input_tokens
+            totalOutputTokens += response.usage.output_tokens
+
+            const { content } = response
+
+            const submitBlock = content
+                .find( ( block ) => block.type === 'tool_use' && block.name === answerToolName )
+
+            if( submitBlock ) {
+                const duration = Date.now() - startTime
+
+                const result = AgentLoop
+                    .#buildResult( {
+                        query,
+                        parsedResult: submitBlock.input,
+                        toolCallLog,
+                        totalInputTokens,
+                        totalOutputTokens,
+                        model,
+                        round,
+                        duration
+                    } )
+
+                running = false
+
+                if( onStatus ) { onStatus( { status: 'completed', round, message: 'Agent loop finished' } ) }
+
+                return { result }
+            }
+
+            const hasToolUse = content
+                .some( ( block ) => block.type === 'tool_use' )
+
+            if( !hasToolUse || round > maxRounds ) {
+                if( !hasRequestedSubmit && toolCallLog.length > 0 && round <= maxRounds ) {
+                    hasRequestedSubmit = true
+                    messages.push( { role: 'assistant', content } )
+                    messages.push( {
+                        role: 'user',
+                        content: `Now call the ${answerToolName} tool with your complete structured analysis based on all data gathered. Do NOT respond with text — you MUST call ${answerToolName}.`
+                    } )
+
+                    if( onStatus ) { onStatus( { status: 'working', round, message: `Requesting structured output via ${answerToolName}` } ) }
+
+                    continue
+                }
+
+                const textBlocks = content
+                    .filter( ( block ) => block.type === 'text' )
+                    .map( ( block ) => block.text )
+
+                const finalText = textBlocks.join( '\n' )
+                const duration = Date.now() - startTime
+
+                const result = AgentLoop
+                    .#buildResult( {
+                        query,
+                        finalText,
+                        toolCallLog,
+                        totalInputTokens,
+                        totalOutputTokens,
+                        model,
+                        round,
+                        duration
+                    } )
+
+                running = false
+
+                if( onStatus ) { onStatus( { status: 'completed', round, message: 'Agent loop finished' } ) }
+
+                return { result }
+            }
+
+            messages.push( { role: 'assistant', content } )
+
+            const toolUseBlocks = content
+                .filter( ( block ) => block.type === 'tool_use' )
+
+            const toolResultPromises = toolUseBlocks
+                .map( async ( toolUse ) => {
+                    const { id, name, input } = toolUse
+
+                    if( onStatus ) {
+                        onStatus( { status: 'working', round, message: `Calling tool: ${name}` } )
+                    }
+
+                    const callStart = Date.now()
+
+                    try {
+                        const callResult = await toolClient.callTool( { name, arguments: input } )
+                        const callDuration = Date.now() - callStart
+
+                        toolCallLog.push( { name, input, duration: callDuration, success: true } )
+
+                        const maxResultLength = 8000
+                        const fullResultText = callResult.content
+                            .filter( ( c ) => c.type === 'text' )
+                            .map( ( c ) => c.text )
+                            .join( '\n' )
+
+                        let resultText = fullResultText
+
+                        if( resultText.length > maxResultLength ) {
+                            resultText = resultText.slice( 0, maxResultLength ) + '\n\n[... truncated, total ' + resultText.length + ' chars]'
+                        }
+
+                        return {
+                            type: 'tool_result',
+                            tool_use_id: id,
+                            content: resultText
+                        }
+                    } catch( error ) {
+                        const callDuration = Date.now() - callStart
+
+                        toolCallLog.push( { name, input, duration: callDuration, success: false, error: error.message } )
+
+                        return {
+                            type: 'tool_result',
+                            tool_use_id: id,
+                            content: `Error calling tool ${name}: ${error.message}`,
+                            is_error: true
+                        }
+                    }
+                } )
+
+            const resolvedResults = await Promise.all( toolResultPromises )
+
+            messages.push( { role: 'user', content: resolvedResults } )
+        } while( running )
+    }
+
+
+    static #buildResult( { query, finalText, parsedResult, toolCallLog, totalInputTokens, totalOutputTokens, model, round, duration } ) {
+        if( !parsedResult ) {
+            try {
+                const jsonMatch = finalText.match( /```json\s*([\s\S]*?)```/ )
+
+                if( jsonMatch ) {
+                    parsedResult = JSON.parse( jsonMatch[ 1 ].trim() )
+                } else {
+                    parsedResult = JSON.parse( finalText )
+                }
+            } catch {
+                parsedResult = { text: finalText }
+            }
+        }
+
+        const breakdown = toolCallLog
+            .map( ( call ) => {
+                const { name, duration: callDuration, success } = call
+
+                return { type: 'tool', name, calls: 1, duration: callDuration, success }
+            } )
+
+        breakdown.unshift( {
+            type: 'llm',
+            calls: round,
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens
+        } )
+
+        const result = {
+            status: 'success',
+            query,
+            result: parsedResult,
+            costs: {
+                breakdown
+            },
+            metadata: {
+                model,
+                toolCalls: toolCallLog.length,
+                llmRounds: round,
+                duration
+            }
+        }
+
+        return result
+    }
+
+
+    static #buildAnswerTool( { answerToolName, answerSchema } ) {
+        const defaultSchema = {
+            type: 'object',
+            properties: {
+                title: {
+                    type: 'string',
+                    description: 'Short title of the result'
+                },
+                analysis: {
+                    type: 'string',
+                    description: 'Detailed analysis with inline citations [1], [2], etc.'
+                },
+                keyFindings: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Key findings from the research'
+                },
+                sources: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            id: { type: 'number', description: 'Source ID matching citation number' },
+                            tool: { type: 'string', description: 'Tool name used' },
+                            query: { type: 'string', description: 'What was queried' },
+                            insight: { type: 'string', description: 'What the data revealed' }
+                        },
+                        required: [ 'id', 'tool', 'query', 'insight' ]
+                    },
+                    description: 'Sources array'
+                }
+            },
+            required: [ 'title', 'analysis', 'keyFindings', 'sources' ]
+        }
+
+        const inputSchema = answerSchema || defaultSchema
+
+        const answerTool = {
+            name: answerToolName,
+            description: 'Submit your final result. You MUST call this tool as your last action after gathering all data.',
+            input_schema: inputSchema
+        }
+
+        return { answerTool }
+    }
+}
+
+
+export { AgentLoop }
