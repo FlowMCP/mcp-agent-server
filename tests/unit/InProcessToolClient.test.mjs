@@ -3,7 +3,7 @@ import { describe, test, expect, jest } from '@jest/globals'
 
 const mockPrepareServerTool = jest.fn()
 
-jest.unstable_mockModule( 'flowmcp', () => {
+jest.unstable_mockModule( 'flowmcp/v1', () => {
     return {
         FlowMCP: {
             prepareServerTool: mockPrepareServerTool

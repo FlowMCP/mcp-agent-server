@@ -1,4 +1,4 @@
-import { FlowMCP } from 'flowmcp'
+import { FlowMCP } from 'flowmcp/v1'
 
 
 class InProcessToolClient {
