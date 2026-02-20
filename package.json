@@ -16,7 +16,7 @@
         "@anthropic-ai/sdk": "^0.39.0",
         "@modelcontextprotocol/sdk": "^1.26.0",
         "express": "^4.21.0",
-        "flowmcp": "github:flowmcp/flowmcp#a1523aa60699e168a6c7b4ec923ac5ee4f15d89a"
+        "flowmcp": "github:FlowMCP/flowmcp-core#42aba6983f5958066fd5abf050eb67419dcf4dda"
     },
     "peerDependencies": {
         "express": "^4.21.0"

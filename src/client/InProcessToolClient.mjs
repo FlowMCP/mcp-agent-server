@@ -10,10 +10,14 @@ class InProcessToolClient {
 
         schemas
             .forEach( ( schema ) => {
-                const { toolName, description, zod, func } = FlowMCP
-                    .prepareServerTool( { schema, serverParams, validate: false } )
+                const routeNames = Object.keys( schema.routes )
+                routeNames
+                    .forEach( ( routeName ) => {
+                        const { toolName, description, zod, func } = FlowMCP
+                            .prepareServerTool( { schema, serverParams, routeName, validate: false } )
 
-                this.#tools.set( toolName, { name: toolName, description, inputSchema: zod, func } )
+                        this.#tools.set( toolName, { name: toolName, description, inputSchema: zod, func } )
+                    } )
             } )
     }
 

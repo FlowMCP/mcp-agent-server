@@ -16,25 +16,28 @@ const { InProcessToolClient } = await import( '../../src/client/InProcessToolCli
 
 describe( 'InProcessToolClient', () => {
     describe( 'constructor', () => {
-        test( 'prepares tools from schemas', () => {
+        test( 'prepares tools from schemas with routes', () => {
             const mockFunc = jest.fn()
 
             mockPrepareServerTool
                 .mockReturnValueOnce( {
-                    toolName: 'defilama_api',
-                    description: 'DeFi Llama API',
+                    toolName: 'defilama_getProtocols',
+                    description: 'Get DeFi protocols',
                     zod: { type: 'object' },
                     func: mockFunc
                 } )
                 .mockReturnValueOnce( {
-                    toolName: 'coingecko_price',
-                    description: 'CoinGecko Price',
+                    toolName: 'coingecko_getPrice',
+                    description: 'Get price',
                     zod: { type: 'object' },
                     func: mockFunc
                 } )
 
             const client = new InProcessToolClient( {
-                schemas: [ { name: 'schema1' }, { name: 'schema2' } ]
+                schemas: [
+                    { name: 'schema1', routes: { getProtocols: {} } },
+                    { name: 'schema2', routes: { getPrice: {} } }
+                ]
             } )
 
             expect( mockPrepareServerTool ).toHaveBeenCalledTimes( 2 )
@@ -42,7 +45,7 @@ describe( 'InProcessToolClient', () => {
         } )
 
 
-        test( 'passes serverParams to prepareServerTool', () => {
+        test( 'passes serverParams and routeName to prepareServerTool', () => {
             mockPrepareServerTool.mockReset()
 
             mockPrepareServerTool.mockReturnValueOnce( {
@@ -53,17 +56,45 @@ describe( 'InProcessToolClient', () => {
             } )
 
             const serverParams = { apiKey: 'test-key' }
+            const schema = { name: 's1', routes: { getResource: {} } }
 
             new InProcessToolClient( {
-                schemas: [ { name: 's1' } ],
+                schemas: [ schema ],
                 serverParams
             } )
 
             expect( mockPrepareServerTool ).toHaveBeenCalledWith( {
-                schema: { name: 's1' },
+                schema,
                 serverParams,
+                routeName: 'getResource',
                 validate: false
             } )
+        } )
+
+
+        test( 'creates multiple tools for schema with multiple routes', () => {
+            mockPrepareServerTool.mockReset()
+
+            mockPrepareServerTool
+                .mockReturnValueOnce( {
+                    toolName: 'api_getList',
+                    description: 'Get list',
+                    zod: { type: 'object' },
+                    func: jest.fn()
+                } )
+                .mockReturnValueOnce( {
+                    toolName: 'api_getDetail',
+                    description: 'Get detail',
+                    zod: { type: 'object' },
+                    func: jest.fn()
+                } )
+
+            const client = new InProcessToolClient( {
+                schemas: [ { name: 'api', routes: { getList: {}, getDetail: {} } } ]
+            } )
+
+            expect( mockPrepareServerTool ).toHaveBeenCalledTimes( 2 )
+            expect( client ).toBeDefined()
         } )
     } )
 
@@ -87,7 +118,10 @@ describe( 'InProcessToolClient', () => {
                 } )
 
             const client = new InProcessToolClient( {
-                schemas: [ { name: 's1' }, { name: 's2' } ]
+                schemas: [
+                    { name: 's1', routes: { routeA: {} } },
+                    { name: 's2', routes: { routeB: {} } }
+                ]
             } )
 
             const { tools } = await client.listTools()
@@ -127,7 +161,9 @@ describe( 'InProcessToolClient', () => {
                 func: mockFuncA
             } )
 
-            const client = new InProcessToolClient( { schemas: [ { name: 's1' } ] } )
+            const client = new InProcessToolClient( {
+                schemas: [ { name: 's1', routes: { getData: {} } } ]
+            } )
 
             const result = await client.callTool( {
                 name: 'tool_a',
@@ -149,7 +185,9 @@ describe( 'InProcessToolClient', () => {
                 func: jest.fn()
             } )
 
-            const client = new InProcessToolClient( { schemas: [ { name: 's1' } ] } )
+            const client = new InProcessToolClient( {
+                schemas: [ { name: 's1', routes: { getKnown: {} } } ]
+            } )
 
             const result = await client.callTool( {
                 name: 'unknown_tool',

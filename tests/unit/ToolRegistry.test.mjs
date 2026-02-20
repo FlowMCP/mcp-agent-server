@@ -35,7 +35,7 @@ const createToolConfigs = () => {
             toolSources: [
                 {
                     type: 'flowmcp',
-                    schemas: [ { name: 'defilama' } ],
+                    schemas: [ { name: 'defilama', routes: { getProtocols: {} } } ],
                     serverParams: { DEFILAMA_KEY: 'test-key' }
                 }
             ],
@@ -63,7 +63,7 @@ const createToolConfigs = () => {
             toolSources: [
                 {
                     type: 'flowmcp',
-                    schemas: [ { name: 'coingecko' } ]
+                    schemas: [ { name: 'coingecko', routes: { getPrice: {} } } ]
                 }
             ]
         }
@@ -251,8 +251,8 @@ describe( 'ToolRegistry', () => {
                     inputSchema: { type: 'object', properties: {} },
                     agent: { systemPrompt: 'Test', model: 'test', maxRounds: 1, maxTokens: 1024 },
                     toolSources: [
-                        { type: 'flowmcp', schemas: [ { name: 'api-a' } ] },
-                        { type: 'flowmcp', schemas: [ { name: 'api-b' } ] }
+                        { type: 'flowmcp', schemas: [ { name: 'api-a', routes: { getA: {} } } ] },
+                        { type: 'flowmcp', schemas: [ { name: 'api-b', routes: { getB: {} } } ] }
                     ]
                 }
             ]
