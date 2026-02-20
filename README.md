@@ -219,6 +219,10 @@ app.use( mcp.middleware() )
 app.listen( 4100 )
 ```
 
+## Documentation
+
+Full FlowMCP documentation at [docs.flowmcp.org](https://docs.flowmcp.org). See the [Agent Server page](https://docs.flowmcp.org/ecosystem/agent-server) for integration guides.
+
 ## License
 
 MIT
