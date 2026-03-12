@@ -87,6 +87,40 @@ class ToolRegistry {
     }
 
 
+    static fromManifest( { manifest, toolSources } ) {
+        const agentConfig = {
+            systemPrompt: manifest[ 'systemPrompt' ],
+            model: manifest[ 'model' ],
+            maxRounds: manifest[ 'maxRounds' ] || 10,
+            maxTokens: manifest[ 'maxTokens' ] || 4096
+        }
+
+        const name = manifest[ 'name' ]
+        const description = manifest[ 'description' ]
+        const inputSchema = manifest[ 'inputSchema' ] || {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'Input query for the agent'
+                }
+            },
+            required: [ 'query' ]
+        }
+
+        const toolConfig = {
+            name,
+            description,
+            inputSchema,
+            agent: agentConfig,
+            toolSources,
+            _manifest: manifest
+        }
+
+        return { toolConfig }
+    }
+
+
     static #createClientFromSource( { source } ) {
         const { type } = source
 

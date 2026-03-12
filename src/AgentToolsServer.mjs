@@ -25,6 +25,26 @@ class AgentToolsServer {
     }
 
 
+    static async fromManifest( { manifest, llm, schemasDir, serverParams = {}, routePath = '/mcp' } ) {
+        const { toolConfig } = ToolRegistry.fromManifest( {
+            manifest,
+            toolSources: [ {
+                type: 'flowmcp',
+                schemasDir,
+                serverParams
+            } ]
+        } )
+
+        const name = manifest[ 'name' ]
+        const version = manifest[ 'version' ] || 'flowmcp/3.0.0'
+        const tools = [ toolConfig ]
+
+        const result = await AgentToolsServer.create( { name, version, routePath, llm, tools } )
+
+        return result
+    }
+
+
     static async create( { name, version, routePath = '/mcp', llm, tools, tasks = {} } ) {
         const config = { name, version, routePath }
         const llmConfig = { baseURL: llm.baseURL, apiKey: llm.apiKey }

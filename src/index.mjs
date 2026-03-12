@@ -1,4 +1,5 @@
 export { AgentToolsServer } from './AgentToolsServer.mjs'
 export { AgentLoop } from './agent/AgentLoop.mjs'
+export { ToolRegistry } from './registry/ToolRegistry.mjs'
 export { InProcessToolClient } from './client/InProcessToolClient.mjs'
 export { CompositeToolClient } from './client/CompositeToolClient.mjs'
