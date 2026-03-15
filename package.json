@@ -4,6 +4,10 @@
     "description": "MCP Server with agent-powered tools, mountable as Express middleware. Each tool starts an LLM Agent Loop that iteratively uses FlowMCP schema tools to solve problems.",
     "main": "./src/index.mjs",
     "type": "module",
+    "exports": {
+        ".": "./src/index.mjs",
+        "./a2a": "./src/a2a/index.mjs"
+    },
     "scripts": {
         "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
         "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
@@ -13,6 +17,7 @@
     "author": "FlowMCP",
     "license": "MIT",
     "dependencies": {
+        "@a2a-js/sdk": "^0.3.12",
         "@anthropic-ai/sdk": "^0.39.0",
         "@modelcontextprotocol/sdk": "^1.26.0",
         "express": "^4.21.0",

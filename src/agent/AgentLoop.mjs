@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 
 
 class AgentLoop {
-    static async start( { query, toolClient, systemPrompt, model, maxRounds = 10, maxTokens = 4096, onStatus, baseURL, apiKey, answerSchema = null } ) {
+    static async start( { query, toolClient, systemPrompt, model, maxRounds = 10, maxTokens = 4096, onStatus, baseURL, apiKey, answerSchema = null, discovery = false } ) {
         const startTime = Date.now()
         let totalInputTokens = 0
         let totalOutputTokens = 0
@@ -19,7 +19,14 @@ class AgentLoop {
 
         const answerToolName = 'submit_answer'
         const { answerTool } = AgentLoop.#buildAnswerTool( { answerToolName, answerSchema } )
-        const allTools = [ ...anthropicTools, answerTool ]
+        const builtinTools = [ answerTool ]
+
+        if( discovery ) {
+            const { discoveryTool } = AgentLoop.#buildDiscoveryTool()
+            builtinTools.push( discoveryTool )
+        }
+
+        const allTools = [ ...anthropicTools, ...builtinTools ]
 
         const messages = [
             { role: 'user', content: query }
@@ -143,7 +150,10 @@ class AgentLoop {
                     const callStart = Date.now()
 
                     try {
-                        const callResult = await toolClient.callTool( { name, arguments: input } )
+                        const isDiscovery = name === 'discover_agent'
+                        const callResult = isDiscovery
+                            ? await AgentLoop.#handleDiscovery( { input } )
+                            : await toolClient.callTool( { name, arguments: input } )
                         const callDuration = Date.now() - callStart
 
                         toolCallLog.push( { name, input, duration: callDuration, success: true } )
@@ -278,6 +288,55 @@ class AgentLoop {
         }
 
         return { answerTool }
+    }
+
+
+    static #buildDiscoveryTool() {
+        const discoveryTool = {
+            name: 'discover_agent',
+            description: 'Discover an A2A agent by fetching its Agent Card. Returns the agent capabilities, skills, and endpoint URL.',
+            input_schema: {
+                type: 'object',
+                properties: {
+                    url: {
+                        type: 'string',
+                        description: 'Base URL of the agent (e.g. https://agent.example.com)'
+                    }
+                },
+                required: [ 'url' ]
+            }
+        }
+
+        return { discoveryTool }
+    }
+
+
+    static async #handleDiscovery( { input } ) {
+        const { url } = input
+        const agentCardUrl = `${url.replace( /\/$/, '' )}/.well-known/agent.json`
+
+        try {
+            const response = await fetch( agentCardUrl )
+
+            if( !response.ok ) {
+                return {
+                    content: [ { type: 'text', text: `Discovery failed: ${agentCardUrl} returned ${response.status}` } ],
+                    isError: true
+                }
+            }
+
+            const agentCard = await response.json()
+            const text = JSON.stringify( agentCard, null, 4 )
+
+            return {
+                content: [ { type: 'text', text } ]
+            }
+        } catch( error ) {
+            return {
+                content: [ { type: 'text', text: `Discovery failed: ${error.message}` } ],
+                isError: true
+            }
+        }
     }
 }
 

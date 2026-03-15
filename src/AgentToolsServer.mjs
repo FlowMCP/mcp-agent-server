@@ -25,14 +25,20 @@ class AgentToolsServer {
     }
 
 
-    static async fromManifest( { manifest, llm, schemasDir, serverParams = {}, routePath = '/mcp' } ) {
+    static async fromManifest( { manifest, llm, schemas = [], serverParams = {}, routePath = '/mcp' } ) {
+        const toolSources = []
+
+        if( schemas.length > 0 ) {
+            toolSources.push( {
+                type: 'flowmcp',
+                schemas,
+                serverParams
+            } )
+        }
+
         const { toolConfig } = ToolRegistry.fromManifest( {
             manifest,
-            toolSources: [ {
-                type: 'flowmcp',
-                schemasDir,
-                serverParams
-            } ]
+            toolSources
         } )
 
         const name = manifest[ 'name' ]
@@ -69,6 +75,34 @@ class AgentToolsServer {
         const { tools } = this.#toolRegistry.listTools()
 
         return { tools }
+    }
+
+
+    getToolConfig( { name } ) {
+        const { toolConfig } = this.#toolRegistry.getToolConfig( { name } )
+
+        return { toolConfig }
+    }
+
+
+    async callTool( { name, arguments: args } ) {
+        const { toolConfig } = this.#toolRegistry.getToolConfig( { name } )
+
+        if( !toolConfig ) {
+            return {
+                content: [ { type: 'text', text: `Error: Unknown tool "${name}"` } ],
+                isError: true
+            }
+        }
+
+        const result = await AgentToolsServer.#runSync( {
+            toolConfig,
+            args,
+            llmConfig: this.#llmConfig,
+            toolRegistry: this.#toolRegistry
+        } )
+
+        return result
     }
 
 
