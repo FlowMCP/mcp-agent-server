@@ -8,13 +8,16 @@ MCP Server with agent-powered tools, mountable as Express middleware. Each tool 
 
 ```mermaid
 flowchart LR
-    A[AI Client] -->|MCP Protocol| B[AgentToolsServer]
+    MC[MCP Client] -->|MCP Protocol| B[AgentToolsServer]
+    A2A[A2A Client] -->|message/send| AD[A2A Adapter]
+    AD -->|tools/call| B
     B --> C[ToolRegistry]
     C --> D[AgentLoop]
     D -->|OpenRouter| E[LLM]
     D -->|callTool| F[ToolClient]
-    F --> G[FlowMCP Schemas]
-    G --> H[External APIs]
+    D -->|discover| G[A2A Discovery]
+    F --> H[FlowMCP Schemas]
+    H --> I[External APIs]
 ```
 
 ## Quickstart
@@ -80,6 +83,9 @@ app.listen( 4100 )
 - MCP Server with StreamableHTTP transport (session-based)
 - LLM Agent Loop with iterative tool calling via Anthropic SDK
 - FlowMCP schemas as tool sources (in-process, no external server needed)
+- **A2A Adapter** — optional Agent-to-Agent protocol support (`@a2a-js/sdk`)
+- **A2A Discovery** — built-in tool to discover other A2A agents
+- **Agent Card** — auto-generated from manifest at `/.well-known/agent.json`
 - Configurable answer schema per tool
 - MCP Tasks API for async tool execution
 - Composable with `x402-mcp-middleware` for payment gating
@@ -91,8 +97,10 @@ app.listen( 4100 )
 - [Architecture](#architecture)
 - [Methods](#methods)
   - [AgentToolsServer.create()](#agenttoolsservercreate)
+  - [AgentToolsServer.fromManifest()](#agenttoolsserverfrommanifest)
   - [.middleware()](#middleware)
   - [.listToolDefinitions()](#listtooldefinitions)
+- [A2A Adapter](#a2a-adapter)
 - [Tool Configuration](#tool-configuration)
 - [Composition with x402](#composition-with-x402)
 - [License](#license)
@@ -123,6 +131,40 @@ AgentToolsServer.create( { name, version, routePath, llm, tools, tasks } )
 ```javascript
 // AgentToolsServer instance
 const { mcp } = await AgentToolsServer.create( { /* config */ } )
+```
+
+### `AgentToolsServer.fromManifest()`
+
+Creates a server from a FlowMCP v3.0.0 agent manifest.
+
+**Method**
+
+```
+AgentToolsServer.fromManifest( { manifest, llm, schemas, serverParams, routePath } )
+```
+
+| Key | Type | Description | Required |
+|-----|------|-------------|----------|
+| manifest | object | Agent manifest (`export const agent` from agent.mjs) | Yes |
+| llm | object | LLM config `{ baseURL, apiKey }` | Yes |
+| schemas | array | FlowMCP schema objects for the agent's tools | No |
+| serverParams | object | API keys for schemas | No |
+| routePath | string | Express route path. Default `'/mcp'` | No |
+
+**Example**
+
+```javascript
+import { agent } from './agent.mjs'
+
+const { mcp } = await AgentToolsServer.fromManifest( {
+    manifest: agent,
+    llm: {
+        baseURL: 'https://openrouter.ai/api',
+        apiKey: process.env.OPENROUTER_API_KEY
+    },
+    schemas: [ etherscanSchema, defilamaSchema ],
+    serverParams: { ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY }
+} )
 ```
 
 ### `.middleware()`
@@ -195,6 +237,46 @@ Each entry in `toolSources` defines where the agent gets its tools from:
 | type | string | Source type. Currently `'flowmcp'` | Yes |
 | schemas | array | FlowMCP schema objects | Yes |
 | serverParams | object | Environment variables / API keys for schemas | No |
+
+## A2A Adapter
+
+Optional Agent-to-Agent protocol support. Import separately:
+
+```javascript
+import { AgentToolsServer } from 'mcp-agent-server'
+import { A2AAdapter } from 'mcp-agent-server/a2a'
+
+const { mcp } = await AgentToolsServer.fromManifest( { manifest, llm: { ... } } )
+
+app.use( mcp.middleware() )
+
+// A2A (optional)
+const a2a = A2AAdapter.from( { mcp, manifest, serverUrl: 'https://my-agent.com' } )
+app.use( '/.well-known/agent.json', a2a.agentCardMiddleware() )
+app.use( '/a2a/v1', a2a.handler() )
+```
+
+This exposes three endpoints:
+
+| Endpoint | Protocol | Purpose |
+|----------|----------|---------|
+| `POST /mcp` | MCP | Tool calls from MCP clients (Claude Desktop, Cursor) |
+| `GET /.well-known/agent.json` | A2A | Agent discovery (Agent Card) |
+| `POST /a2a/v1` | A2A | Agent-to-agent communication (`message/send`) |
+
+The A2A adapter translates `message/send` into MCP `tools/call` — no separate agent loop.
+
+### A2A Discovery
+
+The agent loop includes an optional `discover_agent` tool that fetches Agent Cards from other A2A agents:
+
+```javascript
+const { mcp } = await AgentToolsServer.fromManifest( {
+    manifest,
+    llm: { ... },
+    discovery: true    // Enables discover_agent tool
+} )
+```
 
 ## Composition with x402
 
