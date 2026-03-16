@@ -54,14 +54,14 @@ class AgentToolsServer {
         const version = manifest[ 'version' ] || 'flowmcp/3.0.0'
         const tools = [ toolConfig ]
 
-        const result = await AgentToolsServer.create( { name, version, routePath, llm, tools } )
+        const result = await AgentToolsServer.create( { name, version, routePath, llm, tools, elicitation } )
 
         return result
     }
 
 
-    static async create( { name, version, routePath = '/mcp', llm, tools, tasks = {} } ) {
-        const config = { name, version, routePath }
+    static async create( { name, version, routePath = '/mcp', llm, tools, tasks = {}, elicitation = false } ) {
+        const config = { name, version, routePath, elicitation }
         const llmConfig = { baseURL: llm.baseURL, apiKey: llm.apiKey }
 
         const { registry } = ToolRegistry.create( { toolConfigs: tools } )
@@ -157,23 +157,27 @@ class AgentToolsServer {
 
 
     #createServer() {
-        const { name, version } = this.#config
+        const { name, version, elicitation } = this.#config
         const llmConfig = this.#llmConfig
         const toolRegistry = this.#toolRegistry
         const taskManager = this.#taskManager
 
-        const server = new Server(
-            { name, version },
-            {
-                capabilities: {
-                    tools: {},
-                    tasks: {
-                        requests: {
-                            tools: { call: {} }
-                        }
-                    }
+        const capabilities = {
+            tools: {},
+            tasks: {
+                requests: {
+                    tools: { call: {} }
                 }
             }
+        }
+
+        if( elicitation ) {
+            capabilities.elicitation = {}
+        }
+
+        const server = new Server(
+            { name, version },
+            { capabilities }
         )
 
         server.setRequestHandler( ListToolsRequestSchema, async () => {
