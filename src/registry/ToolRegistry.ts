@@ -105,8 +105,8 @@ class ToolRegistry {
         const agentConfig = {
             systemPrompt: manifest[ 'systemPrompt' ] as string,
             model: manifest[ 'model' ] as string,
-            maxRounds: manifest[ 'maxRounds' ] || 10,
-            maxTokens: manifest[ 'maxTokens' ] || 4096
+            maxRounds: manifest[ 'maxRounds' ] as number,
+            maxTokens: manifest[ 'maxTokens' ] as number
         }
 
         const name = manifest[ 'name' ] as string

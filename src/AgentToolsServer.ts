@@ -6,6 +6,7 @@ import { ListToolsRequestSchema, CallToolRequestSchema, GetTaskRequestSchema, Ge
 import { ToolRegistry } from './registry/ToolRegistry.js'
 import { TaskManager } from './task/TaskManager.js'
 import { AgentLoop } from './agent/AgentLoop.js'
+import { MASError, MAS_ERROR_CODES } from './errors/MASError.js'
 import type { LLMConfig, ServerConfig } from './types/index.js'
 
 
@@ -62,6 +63,26 @@ class AgentToolsServer {
 
 
     static async create( { name, version, routePath = '/mcp', llm, tools, tasks = {}, elicitation = false }: { name: string, version: string, routePath?: string, llm: LLMConfig, tools: any[], tasks?: { store?: any }, elicitation?: boolean } ) {
+        if( !name ) {
+            throw new MASError( { code: MAS_ERROR_CODES.MANIFEST_MISSING_FIELD, message: 'name is required' } )
+        }
+
+        if( !version ) {
+            throw new MASError( { code: MAS_ERROR_CODES.MANIFEST_MISSING_FIELD, message: 'version is required' } )
+        }
+
+        if( !tools || tools.length === 0 ) {
+            throw new MASError( { code: MAS_ERROR_CODES.MANIFEST_INVALID, message: 'tools array must not be empty' } )
+        }
+
+        if( !llm || !llm.baseURL ) {
+            throw new MASError( { code: MAS_ERROR_CODES.LLM_CONFIG_MISSING, message: 'llm.baseURL is required' } )
+        }
+
+        if( !llm.apiKey ) {
+            throw new MASError( { code: MAS_ERROR_CODES.LLM_CONFIG_MISSING, message: 'llm.apiKey is required' } )
+        }
+
         const config: ServerConfig = { name, version, routePath, elicitation }
         const llmConfig: LLMConfig = { baseURL: llm.baseURL, apiKey: llm.apiKey }
 
@@ -262,8 +283,8 @@ class AgentToolsServer {
                     toolClient,
                     systemPrompt,
                     model,
-                    maxRounds: maxRounds || 10,
-                    maxTokens: maxTokens || 4096,
+                    maxRounds,
+                    maxTokens,
                     baseURL,
                     apiKey,
                     answerSchema: agent.answerSchema || null,
@@ -320,8 +341,8 @@ class AgentToolsServer {
                     toolClient,
                     systemPrompt,
                     model,
-                    maxRounds: maxRounds || 10,
-                    maxTokens: maxTokens || 4096,
+                    maxRounds,
+                    maxTokens,
                     baseURL,
                     apiKey,
                     answerSchema: agent.answerSchema || null,

@@ -1,10 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk'
 
+import { MASError, MAS_ERROR_CODES } from '../errors/MASError.js'
 import type { ToolClient, StatusUpdate, JSONSchema } from '../types/index.js'
 
 
 class AgentLoop {
-    static async start( { query, toolClient, systemPrompt, model, maxRounds = 10, maxTokens = 4096, onStatus, baseURL, apiKey, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds?: number, maxTokens?: number, onStatus?: ( params: StatusUpdate ) => void, baseURL?: string, apiKey?: string, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
+    static async start( { query, toolClient, systemPrompt, model, maxRounds, maxTokens, onStatus, baseURL, apiKey, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds: number, maxTokens: number, onStatus?: ( params: StatusUpdate ) => void, baseURL?: string, apiKey?: string, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
+        if( !query ) {
+            throw new MASError( { code: MAS_ERROR_CODES.AGENT_LOOP_ERROR, message: 'query is required' } )
+        }
+
+        if( !toolClient ) {
+            throw new MASError( { code: MAS_ERROR_CODES.AGENT_LOOP_ERROR, message: 'toolClient is required' } )
+        }
+
+        if( !systemPrompt ) {
+            throw new MASError( { code: MAS_ERROR_CODES.AGENT_LOOP_ERROR, message: 'systemPrompt is required' } )
+        }
+
+        if( !model ) {
+            throw new MASError( { code: MAS_ERROR_CODES.AGENT_LOOP_ERROR, message: 'model is required' } )
+        }
         const startTime = Date.now()
         let totalInputTokens = 0
         let totalOutputTokens = 0
