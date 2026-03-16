@@ -1,5 +1,6 @@
 import { InProcessToolClient } from '../client/InProcessToolClient.mjs'
 import { CompositeToolClient } from '../client/CompositeToolClient.mjs'
+import { SubAgentToolClient } from '../client/SubAgentToolClient.mjs'
 
 
 class ToolRegistry {
@@ -52,7 +53,7 @@ class ToolRegistry {
     }
 
 
-    createToolClient( { name } ) {
+    async createToolClient( { name } ) {
         const { toolConfig } = this.getToolConfig( { name } )
 
         if( !toolConfig ) {
@@ -65,11 +66,23 @@ class ToolRegistry {
             return { toolClient: null }
         }
 
-        const clients = toolSources
-            .map( ( source ) => {
-                return ToolRegistry.#createClientFromSource( { source } )
+        const clients = []
+
+        const clientPromises = toolSources
+            .map( async ( source ) => {
+                const client = ToolRegistry.#createClientFromSource( { source } )
+
+                if( client && client.connect ) {
+                    await client.connect()
+                }
+
+                return client
             } )
+
+        const resolvedClients = await Promise.all( clientPromises )
+        resolvedClients
             .filter( Boolean )
+            .forEach( ( client ) => { clients.push( client ) } )
 
         if( clients.length === 0 ) {
             return { toolClient: null }
@@ -130,6 +143,13 @@ class ToolRegistry {
                 schemas: schemas || [],
                 serverParams: serverParams || {}
             } )
+
+            return toolClient
+        }
+
+        if( type === 'mcp-remote' ) {
+            const { url, name } = source
+            const toolClient = new SubAgentToolClient( { url, name } )
 
             return toolClient
         }

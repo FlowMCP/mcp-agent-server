@@ -25,7 +25,7 @@ class AgentToolsServer {
     }
 
 
-    static async fromManifest( { manifest, llm, schemas = [], serverParams = {}, routePath = '/mcp' } ) {
+    static async fromManifest( { manifest, llm, schemas = [], serverParams = {}, subAgents = {}, elicitation = false, routePath = '/mcp' } ) {
         const toolSources = []
 
         if( schemas.length > 0 ) {
@@ -35,6 +35,15 @@ class AgentToolsServer {
                 serverParams
             } )
         }
+
+        Object.entries( subAgents )
+            .forEach( ( [ name, config ] ) => {
+                toolSources.push( {
+                    type: 'mcp-remote',
+                    url: config.url,
+                    name
+                } )
+            } )
 
         const { toolConfig } = ToolRegistry.fromManifest( {
             manifest,
@@ -232,7 +241,7 @@ class AgentToolsServer {
         const { systemPrompt, model, maxRounds, maxTokens } = agent
         const { baseURL, apiKey } = llmConfig
 
-        const { toolClient } = toolRegistry.createToolClient( { name: toolName } )
+        const { toolClient } = await toolRegistry.createToolClient( { name: toolName } )
 
         if( !toolClient ) {
             return {
@@ -290,7 +299,7 @@ class AgentToolsServer {
         const { systemPrompt, model, maxRounds, maxTokens } = agent
         const { baseURL, apiKey } = llmConfig
 
-        const { toolClient } = toolRegistry.createToolClient( { name: toolName } )
+        const { toolClient } = await toolRegistry.createToolClient( { name: toolName } )
 
         if( !toolClient ) {
             await taskManager.failTask( { taskId, error: new Error( `No tool sources configured for: ${toolName}` ) } )

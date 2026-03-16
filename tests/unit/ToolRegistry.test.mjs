@@ -148,7 +148,7 @@ describe( 'ToolRegistry', () => {
         } )
 
 
-        test( 'returns null for unknown tool', () => {
+        test( 'returns null for unknown tool', async () => {
             const toolConfigs = createToolConfigs()
             const { registry } = ToolRegistry.create( { toolConfigs } )
 
@@ -160,7 +160,7 @@ describe( 'ToolRegistry', () => {
 
 
     describe( 'createToolClient', () => {
-        test( 'creates InProcessToolClient for flowmcp source', () => {
+        test( 'creates InProcessToolClient for flowmcp source', async () => {
             mockPrepareServerTool.mockReset()
 
             mockPrepareServerTool.mockReturnValue( {
@@ -173,7 +173,7 @@ describe( 'ToolRegistry', () => {
             const toolConfigs = createToolConfigs()
             const { registry } = ToolRegistry.create( { toolConfigs } )
 
-            const { toolClient } = registry.createToolClient( { name: 'defi-research' } )
+            const { toolClient } = await registry.createToolClient( { name: 'defi-research' } )
 
             expect( toolClient ).toBeDefined()
             expect( typeof toolClient.listTools ).toBe( 'function' )
@@ -182,7 +182,7 @@ describe( 'ToolRegistry', () => {
         } )
 
 
-        test( 'passes serverParams to InProcessToolClient', () => {
+        test( 'passes serverParams to InProcessToolClient', async () => {
             mockPrepareServerTool.mockReset()
 
             mockPrepareServerTool.mockReturnValue( {
@@ -195,7 +195,7 @@ describe( 'ToolRegistry', () => {
             const toolConfigs = createToolConfigs()
             const { registry } = ToolRegistry.create( { toolConfigs } )
 
-            registry.createToolClient( { name: 'defi-research' } )
+            await registry.createToolClient( { name: 'defi-research' } )
 
             expect( mockPrepareServerTool ).toHaveBeenCalledWith(
                 expect.objectContaining( {
@@ -206,17 +206,17 @@ describe( 'ToolRegistry', () => {
         } )
 
 
-        test( 'returns null for unknown tool', () => {
+        test( 'returns null for unknown tool', async () => {
             const toolConfigs = createToolConfigs()
             const { registry } = ToolRegistry.create( { toolConfigs } )
 
-            const { toolClient } = registry.createToolClient( { name: 'nonexistent' } )
+            const { toolClient } = await registry.createToolClient( { name: 'nonexistent' } )
 
             expect( toolClient ).toBeNull()
         } )
 
 
-        test( 'returns null for tool without toolSources', () => {
+        test( 'returns null for tool without toolSources', async () => {
             const configWithoutSources = [
                 {
                     name: 'empty-tool',
@@ -228,13 +228,13 @@ describe( 'ToolRegistry', () => {
 
             const { registry } = ToolRegistry.create( { toolConfigs: configWithoutSources } )
 
-            const { toolClient } = registry.createToolClient( { name: 'empty-tool' } )
+            const { toolClient } = await registry.createToolClient( { name: 'empty-tool' } )
 
             expect( toolClient ).toBeNull()
         } )
 
 
-        test( 'creates CompositeToolClient for multiple sources', () => {
+        test( 'creates CompositeToolClient for multiple sources', async () => {
             mockPrepareServerTool.mockReset()
 
             mockPrepareServerTool.mockReturnValue( {
@@ -259,7 +259,7 @@ describe( 'ToolRegistry', () => {
 
             const { registry } = ToolRegistry.create( { toolConfigs: multiSourceConfig } )
 
-            const { toolClient } = registry.createToolClient( { name: 'multi-tool' } )
+            const { toolClient } = await registry.createToolClient( { name: 'multi-tool' } )
 
             expect( toolClient ).toBeDefined()
             expect( typeof toolClient.listTools ).toBe( 'function' )
@@ -268,7 +268,7 @@ describe( 'ToolRegistry', () => {
         } )
 
 
-        test( 'skips unknown source types', () => {
+        test( 'skips unknown source types', async () => {
             const unknownSourceConfig = [
                 {
                     name: 'unknown-source-tool',
@@ -283,7 +283,7 @@ describe( 'ToolRegistry', () => {
 
             const { registry } = ToolRegistry.create( { toolConfigs: unknownSourceConfig } )
 
-            const { toolClient } = registry.createToolClient( { name: 'unknown-source-tool' } )
+            const { toolClient } = await registry.createToolClient( { name: 'unknown-source-tool' } )
 
             expect( toolClient ).toBeNull()
         } )
