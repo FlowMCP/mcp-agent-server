@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { EventEmitter } from 'node:events'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { ListToolsRequestSchema, CallToolRequestSchema, GetTaskRequestSchema, GetTaskPayloadRequestSchema } from '@modelcontextprotocol/sdk/types.js'
@@ -10,20 +11,23 @@ import { MASError, MAS_ERROR_CODES } from './errors/MASError.js'
 import type { LLMConfig, ServerConfig } from './types/index.js'
 
 
-class AgentToolsServer {
+class AgentToolsServer extends EventEmitter {
     #config: ServerConfig
     #llmConfig: LLMConfig
     #toolRegistry: ToolRegistry
     #taskManager: TaskManager
     #transports: Record<string, StreamableHTTPServerTransport>
+    #sseClients: Set<any>
 
 
     constructor( { config, llmConfig, toolRegistry, taskManager }: { config: ServerConfig, llmConfig: LLMConfig, toolRegistry: ToolRegistry, taskManager: TaskManager } ) {
+        super()
         this.#config = config
         this.#llmConfig = llmConfig
         this.#toolRegistry = toolRegistry
         this.#taskManager = taskManager
         this.#transports = {}
+        this.#sseClients = new Set()
     }
 
 
@@ -130,7 +134,8 @@ class AgentToolsServer {
             toolConfig,
             args,
             llmConfig: this.#llmConfig,
-            toolRegistry: this.#toolRegistry
+            toolRegistry: this.#toolRegistry,
+            emitter: this
         } )
 
         return result
@@ -178,11 +183,60 @@ class AgentToolsServer {
     }
 
 
+    sseMiddleware() {
+        const sseClients = this.#sseClients
+        const emitter = this
+
+        const middleware = ( req: any, res: any, next: any ) => {
+            if( req.path !== '/events' || req.method !== 'GET' ) {
+                next()
+
+                return
+            }
+
+            res.writeHead( 200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive'
+            } )
+
+            res.write( 'data: {"type":"connected"}\n\n' )
+
+            sseClients.add( res )
+
+            const eventNames = [ 'agent:start', 'agent:status', 'agent:complete', 'agent:error' ]
+
+            const listeners = eventNames
+                .map( ( eventName ) => {
+                    const listener = ( payload: any ) => {
+                        res.write( `event: ${eventName}\ndata: ${JSON.stringify( payload )}\n\n` )
+                    }
+
+                    emitter.on( eventName, listener )
+
+                    return { eventName, listener }
+                } )
+
+            req.on( 'close', () => {
+                sseClients.delete( res )
+
+                listeners
+                    .forEach( ( { eventName, listener } ) => {
+                        emitter.removeListener( eventName, listener )
+                    } )
+            } )
+        }
+
+        return middleware
+    }
+
+
     #createServer() {
         const { name, version, elicitation } = this.#config
         const llmConfig = this.#llmConfig
         const toolRegistry = this.#toolRegistry
         const taskManager = this.#taskManager
+        const emitter: EventEmitter = this
 
         const capabilities: Record<string, any> = {
             tools: {},
@@ -222,7 +276,7 @@ class AgentToolsServer {
             }
 
             if( !taskParams ) {
-                const result = await AgentToolsServer.#runSync( { toolConfig, args, llmConfig, toolRegistry } )
+                const result = await AgentToolsServer.#runSync( { toolConfig, args, llmConfig, toolRegistry, emitter } )
 
                 return result
             }
@@ -234,7 +288,7 @@ class AgentToolsServer {
                 taskParams
             } )
 
-            AgentToolsServer.#runAsync( { taskId: task.taskId, toolConfig, args, llmConfig, toolRegistry, taskManager } )
+            AgentToolsServer.#runAsync( { taskId: task.taskId, toolConfig, args, llmConfig, toolRegistry, taskManager, emitter } )
 
             return { task }
         } )
@@ -262,10 +316,12 @@ class AgentToolsServer {
     }
 
 
-    static async #runSync( { toolConfig, args, llmConfig, toolRegistry }: { toolConfig: any, args: any, llmConfig: LLMConfig, toolRegistry: ToolRegistry } ) {
+    static async #runSync( { toolConfig, args, llmConfig, toolRegistry, emitter }: { toolConfig: any, args: any, llmConfig: LLMConfig, toolRegistry: ToolRegistry, emitter?: EventEmitter } ) {
         const { name: toolName, agent } = toolConfig
         const { systemPrompt, model, maxRounds, maxTokens } = agent
         const { baseURL, apiKey } = llmConfig
+        const taskId = randomUUID()
+        const query = args.query || JSON.stringify( args )
 
         const { toolClient } = await toolRegistry.createToolClient( { name: toolName } )
 
@@ -276,10 +332,14 @@ class AgentToolsServer {
             }
         }
 
+        if( emitter ) {
+            emitter.emit( 'agent:start', { taskId, query, model, agentName: toolName, timestamp: Date.now() } )
+        }
+
         try {
             const loopResult = await AgentLoop
                 .start( {
-                    query: args.query || JSON.stringify( args ),
+                    query,
                     toolClient,
                     systemPrompt,
                     model,
@@ -288,11 +348,19 @@ class AgentToolsServer {
                     baseURL,
                     apiKey,
                     answerSchema: agent.answerSchema || null,
-                    onStatus: ( { status, round, message } ) => {
+                    onStatus: ( { status, round, message }: { status: string, round: number, message: string } ) => {
                         console.log( `[AgentServer] sync | ${toolName} | ${status} | Round ${round} | ${message}` )
+
+                        if( emitter ) {
+                            emitter.emit( 'agent:status', { taskId, agentName: toolName, status, round, message, timestamp: Date.now() } )
+                        }
                     }
                 } )
             const { result } = loopResult!
+
+            if( emitter ) {
+                emitter.emit( 'agent:complete', { taskId, agentName: toolName, result, timestamp: Date.now() } )
+            }
 
             return {
                 content: [
@@ -305,6 +373,10 @@ class AgentToolsServer {
             }
         } catch( error: any ) {
             console.error( `[AgentServer] sync | ${toolName} | failed | ${error.message}` )
+
+            if( emitter ) {
+                emitter.emit( 'agent:error', { taskId, agentName: toolName, error: error.message, timestamp: Date.now() } )
+            }
 
             return {
                 content: [
@@ -321,10 +393,11 @@ class AgentToolsServer {
     }
 
 
-    static async #runAsync( { taskId, toolConfig, args, llmConfig, toolRegistry, taskManager }: { taskId: string, toolConfig: any, args: any, llmConfig: LLMConfig, toolRegistry: ToolRegistry, taskManager: TaskManager } ) {
+    static async #runAsync( { taskId, toolConfig, args, llmConfig, toolRegistry, taskManager, emitter }: { taskId: string, toolConfig: any, args: any, llmConfig: LLMConfig, toolRegistry: ToolRegistry, taskManager: TaskManager, emitter?: EventEmitter } ) {
         const { name: toolName, agent } = toolConfig
         const { systemPrompt, model, maxRounds, maxTokens } = agent
         const { baseURL, apiKey } = llmConfig
+        const query = args.query || JSON.stringify( args )
 
         const { toolClient } = await toolRegistry.createToolClient( { name: toolName } )
 
@@ -334,10 +407,14 @@ class AgentToolsServer {
             return
         }
 
+        if( emitter ) {
+            emitter.emit( 'agent:start', { taskId, query, model, agentName: toolName, timestamp: Date.now() } )
+        }
+
         try {
             const asyncResult = await AgentLoop
                 .start( {
-                    query: args.query || JSON.stringify( args ),
+                    query,
                     toolClient,
                     systemPrompt,
                     model,
@@ -346,11 +423,19 @@ class AgentToolsServer {
                     baseURL,
                     apiKey,
                     answerSchema: agent.answerSchema || null,
-                    onStatus: ( { status, round, message } ) => {
+                    onStatus: ( { status, round, message }: { status: string, round: number, message: string } ) => {
                         console.log( `[AgentServer] Task ${taskId} | ${toolName} | ${status} | Round ${round} | ${message}` )
+
+                        if( emitter ) {
+                            emitter.emit( 'agent:status', { taskId, agentName: toolName, status, round, message, timestamp: Date.now() } )
+                        }
                     }
                 } )
             const { result } = asyncResult!
+
+            if( emitter ) {
+                emitter.emit( 'agent:complete', { taskId, agentName: toolName, result, timestamp: Date.now() } )
+            }
 
             await taskManager.completeTask( {
                 taskId,
@@ -366,6 +451,10 @@ class AgentToolsServer {
             } )
         } catch( error: any ) {
             console.error( `[AgentServer] Task ${taskId} | ${toolName} | failed | ${error.message}` )
+
+            if( emitter ) {
+                emitter.emit( 'agent:error', { taskId, agentName: toolName, error: error.message, timestamp: Date.now() } )
+            }
 
             await taskManager.failTask( { taskId, error } )
         } finally {
