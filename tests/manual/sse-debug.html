@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MCP Agent Server — SSE Debug</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+        h1 { color: #00d4ff; margin-bottom: 10px; font-size: 18px; }
+        .status { padding: 8px 16px; border-radius: 4px; margin-bottom: 20px; display: inline-block; }
+        .status.connected { background: #0f5132; color: #75b798; }
+        .status.disconnected { background: #842029; color: #ea868f; }
+        .controls { margin-bottom: 20px; }
+        .controls input { background: #16213e; color: #e0e0e0; border: 1px solid #333; padding: 8px; width: 300px; font-family: monospace; }
+        .controls button { background: #00d4ff; color: #1a1a2e; border: none; padding: 8px 16px; cursor: pointer; font-family: monospace; font-weight: bold; }
+        .events { max-height: 600px; overflow-y: auto; }
+        .event { padding: 8px; margin: 4px 0; border-left: 3px solid #333; background: #16213e; font-size: 13px; }
+        .event.agent-start { border-color: #00d4ff; }
+        .event.agent-status { border-color: #ffc107; }
+        .event.agent-complete { border-color: #198754; }
+        .event.agent-error { border-color: #dc3545; }
+        .event .type { font-weight: bold; margin-right: 8px; }
+        .event .time { color: #888; margin-right: 8px; }
+        .event .payload { color: #aaa; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>MCP Agent Server — SSE Event Monitor</h1>
+    <div class="controls">
+        <input id="url" value="http://localhost:4100/events" placeholder="SSE Endpoint URL" />
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <button onclick="clearEvents()">Clear</button>
+    </div>
+    <div id="status" class="status disconnected">Disconnected</div>
+    <div id="events" class="events"></div>
+
+    <script>
+        let source = null
+
+        function connect() {
+            const url = document.getElementById( 'url' ).value
+            if( source ) { source.close() }
+
+            source = new EventSource( url )
+            document.getElementById( 'status' ).className = 'status connected'
+            document.getElementById( 'status' ).textContent = 'Connected to ' + url
+
+            source.onmessage = function( event ) {
+                addEvent( 'message', event.data )
+            }
+
+            const eventTypes = [ 'agent:start', 'agent:status', 'agent:complete', 'agent:error' ]
+            eventTypes.forEach( function( type ) {
+                source.addEventListener( type, function( event ) {
+                    addEvent( type, event.data )
+                } )
+            } )
+
+            source.onerror = function() {
+                document.getElementById( 'status' ).className = 'status disconnected'
+                document.getElementById( 'status' ).textContent = 'Disconnected (error)'
+            }
+        }
+
+        function disconnect() {
+            if( source ) {
+                source.close()
+                source = null
+            }
+            document.getElementById( 'status' ).className = 'status disconnected'
+            document.getElementById( 'status' ).textContent = 'Disconnected'
+        }
+
+        function clearEvents() {
+            document.getElementById( 'events' ).innerHTML = ''
+        }
+
+        function addEvent( type, data ) {
+            const div = document.createElement( 'div' )
+            const cssClass = type.replace( ':', '-' )
+            div.className = 'event ' + cssClass
+
+            const time = new Date().toISOString().split( 'T' )[ 1 ].slice( 0, 8 )
+            let payload = data
+            try { payload = JSON.stringify( JSON.parse( data ), null, 2 ) } catch( e ) {}
+
+            div.innerHTML = '<span class="time">' + time + '</span><span class="type">' + type + '</span><br/><span class="payload">' + payload + '</span>'
+
+            const container = document.getElementById( 'events' )
+            container.insertBefore( div, container.firstChild )
+        }
+    </script>
+</body>
+</html>
