@@ -1,3 +1,37 @@
+declare module 'flowmcp' {
+    export class FlowMCP {
+        static loadSchema( params: {
+            filePath: string
+            listsDir?: string
+            allowlist?: string[]
+        } ): Promise<{
+            main: any
+            handlerMap: any
+            hasHandlers: boolean
+        }>
+
+        static fetch( params: {
+            main: any
+            handlerMap: any
+            userParams: Record<string, any>
+            serverParams: Record<string, string>
+            routeName: string
+        } ): Promise<{ struct: any }>
+
+        static prepareServerTool( params: {
+            main: any
+            handlerMap: any
+            serverParams: Record<string, string>
+            routeName: string
+        } ): {
+            toolName: string
+            description: string
+            zod: any
+            func: ( args: any ) => Promise<any>
+        }
+    }
+}
+
 declare module 'flowmcp/v1' {
     export class FlowMCP {
         static prepareServerTool( params: {

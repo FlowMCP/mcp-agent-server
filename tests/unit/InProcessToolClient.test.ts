@@ -1,13 +1,17 @@
 import { describe, test, expect, vi } from 'vitest'
 
 
-const { mockPrepareServerTool } = vi.hoisted( () => {
-    return { mockPrepareServerTool: vi.fn() }
+const { mockLoadSchema, mockPrepareServerTool } = vi.hoisted( () => {
+    return {
+        mockLoadSchema: vi.fn(),
+        mockPrepareServerTool: vi.fn()
+    }
 } )
 
-vi.mock( 'flowmcp/v1', () => {
+vi.mock( 'flowmcp', () => {
     return {
         FlowMCP: {
+            loadSchema: mockLoadSchema,
             prepareServerTool: mockPrepareServerTool
         }
     }
@@ -17,130 +21,124 @@ import { InProcessToolClient } from '../../src/client/InProcessToolClient.js'
 
 
 describe( 'InProcessToolClient', () => {
-    describe( 'constructor', () => {
-        test( 'prepares tools from schemas with routes', () => {
-            const mockFunc = vi.fn()
 
-            mockPrepareServerTool
-                .mockReturnValueOnce( {
-                    toolName: 'defilama_getProtocols',
-                    description: 'Get DeFi protocols',
-                    zod: { type: 'object' },
-                    func: mockFunc
-                } )
-                .mockReturnValueOnce( {
-                    toolName: 'coingecko_getPrice',
-                    description: 'Get price',
-                    zod: { type: 'object' },
-                    func: mockFunc
-                } )
-
-            const client = new InProcessToolClient( {
-                schemas: [
-                    { name: 'schema1', routes: { getProtocols: {} } },
-                    { name: 'schema2', routes: { getPrice: {} } }
-                ]
-            } )
-
-            expect( mockPrepareServerTool ).toHaveBeenCalledTimes( 2 )
-            expect( client ).toBeDefined()
-        } )
-
-
-        test( 'passes serverParams and routeName to prepareServerTool', () => {
+    describe( 'create', () => {
+        test( 'loads v3 schemas and prepares tools', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
+            mockLoadSchema.mockResolvedValueOnce( {
+                main: { version: '3.0.0', namespace: 'test', tools: { getList: { description: 'Get list' } } },
+                handlerMap: {}
+            } )
+
             mockPrepareServerTool.mockReturnValueOnce( {
-                toolName: 'tool_a',
-                description: 'Tool A',
+                toolName: 'get_list_test',
+                description: 'Get list',
                 zod: { type: 'object' },
                 func: vi.fn()
             } )
 
-            const serverParams = { apiKey: 'test-key' }
-            const schema = { name: 's1', routes: { getResource: {} } }
-
-            new InProcessToolClient( {
-                schemas: [ schema ],
-                serverParams
+            const client = await InProcessToolClient.create( {
+                schemaPaths: [ '/path/to/schema.mjs' ]
             } )
 
-            expect( mockPrepareServerTool ).toHaveBeenCalledWith( {
-                schema,
-                serverParams,
-                routeName: 'getResource',
-                validate: false
-            } )
+            expect( mockLoadSchema ).toHaveBeenCalledWith( { filePath: '/path/to/schema.mjs' } )
+            expect( mockPrepareServerTool ).toHaveBeenCalledTimes( 1 )
+            expect( client ).toBeDefined()
         } )
 
 
-        test( 'creates multiple tools for schema with multiple routes', () => {
+        test( 'rejects v2 schemas with MAS_SCHEMA_VERSION error', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
-            mockPrepareServerTool
-                .mockReturnValueOnce( {
-                    toolName: 'api_getList',
-                    description: 'Get list',
-                    zod: { type: 'object' },
-                    func: vi.fn()
-                } )
-                .mockReturnValueOnce( {
-                    toolName: 'api_getDetail',
-                    description: 'Get detail',
-                    zod: { type: 'object' },
-                    func: vi.fn()
-                } )
-
-            const client = new InProcessToolClient( {
-                schemas: [ { name: 'api', routes: { getList: {}, getDetail: {} } } ]
+            mockLoadSchema.mockResolvedValueOnce( {
+                main: { version: '2.0.0', namespace: 'old', routes: { getOld: {} } },
+                handlerMap: {}
             } )
 
+            await expect(
+                InProcessToolClient.create( { schemaPaths: [ '/path/to/old.mjs' ] } )
+            ).rejects.toThrow( 'not v3' )
+        } )
+
+
+        test( 'rejects schemas without version', async () => {
+            mockLoadSchema.mockReset()
+            mockPrepareServerTool.mockReset()
+
+            mockLoadSchema.mockResolvedValueOnce( {
+                main: { namespace: 'noversion', tools: { getThing: {} } },
+                handlerMap: {}
+            } )
+
+            await expect(
+                InProcessToolClient.create( { schemaPaths: [ '/path/to/noversion.mjs' ] } )
+            ).rejects.toThrow( 'not v3' )
+        } )
+
+
+        test( 'loads multiple schemas', async () => {
+            mockLoadSchema.mockReset()
+            mockPrepareServerTool.mockReset()
+
+            mockLoadSchema
+                .mockResolvedValueOnce( {
+                    main: { version: '3.0.0', namespace: 'a', tools: { getA: { description: 'A' } } },
+                    handlerMap: {}
+                } )
+                .mockResolvedValueOnce( {
+                    main: { version: '3.0.0', namespace: 'b', tools: { getB: { description: 'B' } } },
+                    handlerMap: {}
+                } )
+
+            mockPrepareServerTool
+                .mockReturnValueOnce( { toolName: 'get_a_a', description: 'A', zod: {}, func: vi.fn() } )
+                .mockReturnValueOnce( { toolName: 'get_b_b', description: 'B', zod: {}, func: vi.fn() } )
+
+            const client = await InProcessToolClient.create( {
+                schemaPaths: [ '/a.mjs', '/b.mjs' ]
+            } )
+
+            expect( mockLoadSchema ).toHaveBeenCalledTimes( 2 )
             expect( mockPrepareServerTool ).toHaveBeenCalledTimes( 2 )
-            expect( client ).toBeDefined()
+
+            const { tools } = await client.listTools()
+
+            expect( tools ).toHaveLength( 2 )
         } )
     } )
 
 
     describe( 'listTools', () => {
         test( 'returns all prepared tools', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
-            mockPrepareServerTool
-                .mockReturnValueOnce( {
-                    toolName: 'tool_a',
-                    description: 'Tool A',
-                    zod: { type: 'object', properties: { q: { type: 'string' } } },
-                    func: vi.fn()
-                } )
-                .mockReturnValueOnce( {
-                    toolName: 'tool_b',
-                    description: 'Tool B',
-                    zod: { type: 'object', properties: {} },
-                    func: vi.fn()
-                } )
-
-            const client = new InProcessToolClient( {
-                schemas: [
-                    { name: 's1', routes: { routeA: {} } },
-                    { name: 's2', routes: { routeB: {} } }
-                ]
+            mockLoadSchema.mockResolvedValueOnce( {
+                main: { version: '3.0.0', namespace: 'test', tools: { getA: { description: 'A' }, getB: { description: 'B' } } },
+                handlerMap: {}
             } )
 
+            mockPrepareServerTool
+                .mockReturnValueOnce( { toolName: 'get_a_test', description: 'A', zod: { type: 'object' }, func: vi.fn() } )
+                .mockReturnValueOnce( { toolName: 'get_b_test', description: 'B', zod: { type: 'object' }, func: vi.fn() } )
+
+            const client = await InProcessToolClient.create( { schemaPaths: [ '/test.mjs' ] } )
             const { tools } = await client.listTools()
 
             expect( tools ).toHaveLength( 2 )
-            expect( tools[ 0 ].name ).toBe( 'tool_a' )
-            expect( tools[ 0 ].description ).toBe( 'Tool A' )
-            expect( tools[ 0 ].inputSchema ).toBeDefined()
-            expect( tools[ 1 ].name ).toBe( 'tool_b' )
+            expect( tools[ 0 ].name ).toBe( 'get_a_test' )
+            expect( tools[ 1 ].name ).toBe( 'get_b_test' )
         } )
 
 
         test( 'returns empty array for no schemas', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
-            const client = new InProcessToolClient( { schemas: [] } )
-
+            const client = await InProcessToolClient.create( { schemaPaths: [] } )
             const { tools } = await client.listTools()
 
             expect( tools ).toHaveLength( 0 )
@@ -149,52 +147,40 @@ describe( 'InProcessToolClient', () => {
 
 
     describe( 'callTool', () => {
-        test( 'calls the correct tool function with arguments', async () => {
+        test( 'calls the correct tool function', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
-            const mockFuncA = vi.fn().mockResolvedValue( {
-                content: [ { type: 'text', text: 'Result: {"data": "test"}' } ]
+            const mockFunc = vi.fn().mockResolvedValue( {
+                content: [ { type: 'text', text: 'Result: test' } ]
+            } )
+
+            mockLoadSchema.mockResolvedValueOnce( {
+                main: { version: '3.0.0', namespace: 'test', tools: { getData: { description: 'Get data' } } },
+                handlerMap: {}
             } )
 
             mockPrepareServerTool.mockReturnValueOnce( {
-                toolName: 'tool_a',
-                description: 'Tool A',
+                toolName: 'get_data_test',
+                description: 'Get data',
                 zod: { type: 'object' },
-                func: mockFuncA
+                func: mockFunc
             } )
 
-            const client = new InProcessToolClient( {
-                schemas: [ { name: 's1', routes: { getData: {} } } ]
-            } )
+            const client = await InProcessToolClient.create( { schemaPaths: [ '/test.mjs' ] } )
+            const result = await client.callTool( { name: 'get_data_test', arguments: { query: 'test' } } )
 
-            const result = await client.callTool( {
-                name: 'tool_a',
-                arguments: { query: 'test' }
-            } )
-
-            expect( mockFuncA ).toHaveBeenCalledWith( { query: 'test' } )
+            expect( mockFunc ).toHaveBeenCalledWith( { query: 'test' } )
             expect( result.content[ 0 ].text ).toContain( 'test' )
         } )
 
 
         test( 'returns error for unknown tool', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
-            mockPrepareServerTool.mockReturnValueOnce( {
-                toolName: 'known_tool',
-                description: 'Known',
-                zod: { type: 'object' },
-                func: vi.fn()
-            } )
-
-            const client = new InProcessToolClient( {
-                schemas: [ { name: 's1', routes: { getKnown: {} } } ]
-            } )
-
-            const result = await client.callTool( {
-                name: 'unknown_tool',
-                arguments: {}
-            } )
+            const client = await InProcessToolClient.create( { schemaPaths: [] } )
+            const result = await client.callTool( { name: 'unknown', arguments: {} } )
 
             expect( result.isError ).toBe( true )
             expect( result.content[ 0 ].text ).toContain( 'Unknown tool' )
@@ -203,12 +189,14 @@ describe( 'InProcessToolClient', () => {
 
 
     describe( 'close', () => {
-        test( 'is a no-op that does not throw', () => {
+        test( 'is a no-op that does not throw', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
-            const client = new InProcessToolClient( { schemas: [] } )
+            const client = await InProcessToolClient.create( { schemaPaths: [] } )
 
-            expect( () => client.close() ).not.toThrow()
+            await expect( client.close() ).resolves.toBeUndefined()
         } )
     } )
+
 } )

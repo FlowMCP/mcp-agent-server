@@ -1,13 +1,17 @@
 import { describe, test, expect, vi } from 'vitest'
 
 
-const { mockPrepareServerTool } = vi.hoisted( () => {
-    return { mockPrepareServerTool: vi.fn() }
+const { mockLoadSchema, mockPrepareServerTool } = vi.hoisted( () => {
+    return {
+        mockLoadSchema: vi.fn().mockResolvedValue( { main: { version: '3.0.0', namespace: 'mock', tools: {} }, handlerMap: {} } ),
+        mockPrepareServerTool: vi.fn()
+    }
 } )
 
-vi.mock( 'flowmcp/v1', () => {
+vi.mock( 'flowmcp', () => {
     return {
         FlowMCP: {
+            loadSchema: mockLoadSchema,
             prepareServerTool: mockPrepareServerTool
         }
     }
@@ -37,7 +41,7 @@ const createToolConfigs = () => {
             toolSources: [
                 {
                     type: 'flowmcp',
-                    schemas: [ { name: 'defilama', routes: { getProtocols: {} } } ],
+                    schemaPaths: [ '/schemas/defilama.mjs' ],
                     serverParams: { DEFILAMA_KEY: 'test-key' }
                 }
             ],
@@ -185,7 +189,13 @@ describe( 'ToolRegistry', () => {
 
 
         test( 'passes serverParams to InProcessToolClient', async () => {
+            mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
+
+            mockLoadSchema.mockResolvedValue( {
+                main: { version: '3.0.0', namespace: 'defilama', tools: { getProtocols: { description: 'Get protocols' } } },
+                handlerMap: {}
+            } )
 
             mockPrepareServerTool.mockReturnValue( {
                 toolName: 'defilama_tool',
@@ -199,10 +209,10 @@ describe( 'ToolRegistry', () => {
 
             await registry.createToolClient( { name: 'defi-research' } )
 
+            expect( mockLoadSchema ).toHaveBeenCalledWith( { filePath: '/schemas/defilama.mjs' } )
             expect( mockPrepareServerTool ).toHaveBeenCalledWith(
                 expect.objectContaining( {
-                    serverParams: { DEFILAMA_KEY: 'test-key' },
-                    validate: false
+                    serverParams: { DEFILAMA_KEY: 'test-key' }
                 } )
             )
         } )

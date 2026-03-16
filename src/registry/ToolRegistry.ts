@@ -135,13 +135,13 @@ class ToolRegistry {
     }
 
 
-    static #createClientFromSource( { source }: { source: any } ): ToolClient | null {
+    static async #createClientFromSource( { source }: { source: any } ): Promise<ToolClient | null> {
         const { type } = source
 
         if( type === 'flowmcp' ) {
-            const { schemas, serverParams } = source
-            const toolClient = new InProcessToolClient( {
-                schemas: schemas || [],
+            const { schemaPaths, serverParams } = source
+            const toolClient = await InProcessToolClient.create( {
+                schemaPaths: schemaPaths || [],
                 serverParams: serverParams || {}
             } )
 

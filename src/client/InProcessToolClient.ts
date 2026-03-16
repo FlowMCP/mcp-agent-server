@@ -1,5 +1,6 @@
-import { FlowMCP } from 'flowmcp/v1'
+import { FlowMCP } from 'flowmcp'
 
+import { MASError, MAS_ERROR_CODES } from '../errors/MASError.js'
 import type { ToolClient, Tool, ToolResult } from '../types/index.js'
 
 
@@ -7,20 +8,40 @@ class InProcessToolClient implements ToolClient {
     #tools: Map<string, { name: string, description: string, inputSchema: any, func: ( args: any ) => Promise<any> }>
 
 
-    constructor( { schemas, serverParams = {} }: { schemas: any[], serverParams?: Record<string, string> } ) {
+    private constructor() {
         this.#tools = new Map()
+    }
 
-        schemas
-            .forEach( ( schema: any ) => {
-                const routeNames = Object.keys( schema.routes )
-                routeNames
-                    .forEach( ( routeName ) => {
-                        const { toolName, description, zod, func } = FlowMCP
-                            .prepareServerTool( { schema, serverParams, routeName, validate: false } )
 
-                        this.#tools.set( toolName, { name: toolName, description, inputSchema: zod, func } )
-                    } )
-            } )
+    static async create( { schemaPaths, serverParams = {} }: { schemaPaths: string[], serverParams?: Record<string, string> } ): Promise<InProcessToolClient> {
+        const client = new InProcessToolClient()
+        await client.#loadSchemas( { schemaPaths, serverParams } )
+
+        return client
+    }
+
+
+    async #loadSchemas( { schemaPaths, serverParams }: { schemaPaths: string[], serverParams: Record<string, string> } ) {
+        for( const schemaPath of schemaPaths ) {
+            const { main, handlerMap } = await FlowMCP.loadSchema( { filePath: schemaPath } )
+
+            if( !main.version || !main.version.startsWith( '3.' ) ) {
+                throw new MASError( {
+                    code: MAS_ERROR_CODES.SCHEMA_VERSION,
+                    message: `Schema "${schemaPath}" is not v3. Found version: ${main.version || 'undefined'}`,
+                    details: { schemaPath, version: main.version }
+                } )
+            }
+
+            const toolNames = Object.keys( main[ 'tools' ] || {} )
+
+            for( const routeName of toolNames ) {
+                const { toolName, description, zod, func } = FlowMCP
+                    .prepareServerTool( { main, handlerMap, serverParams, routeName } )
+
+                this.#tools.set( toolName, { name: toolName, description, inputSchema: zod, func } )
+            }
+        }
     }
 
 
