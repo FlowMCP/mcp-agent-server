@@ -82,6 +82,48 @@ class TaskManager {
     }
 
 
+    async cancelTask( { taskId } ) {
+        const { task } = await this.getTask( { taskId } )
+
+        if( !task ) {
+            throw new Error( `Task ${taskId} not found` )
+        }
+
+        if( isTerminal( task.status ) ) {
+            throw new Error( `Cannot cancel task ${taskId} — already in terminal status: ${task.status}` )
+        }
+
+        await this.#taskStore.updateTaskStatus( taskId, 'cancelled' )
+
+        TaskManager.#notifyResolvers( { taskId, taskResolvers: this.#taskResolvers } )
+
+        return { taskId, status: 'cancelled' }
+    }
+
+
+    async updateTaskStatus( { taskId, status, statusMessage } ) {
+        await this.#taskStore.updateTaskStatus( taskId, status, statusMessage )
+
+        if( isTerminal( status ) ) {
+            TaskManager.#notifyResolvers( { taskId, taskResolvers: this.#taskResolvers } )
+        }
+    }
+
+
+    async listTasks( { cursor, limit = 50 } = {} ) {
+        const allTasks = []
+        const store = this.#taskStore
+
+        if( store.listTasks ) {
+            const result = await store.listTasks( cursor, limit )
+
+            return result
+        }
+
+        return { tasks: allTasks }
+    }
+
+
     get taskStore() {
         return this.#taskStore
     }
