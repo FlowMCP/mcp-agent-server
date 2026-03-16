@@ -1,17 +1,26 @@
 {
     "name": "mcp-agent-server",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "MCP Server with agent-powered tools, mountable as Express middleware. Each tool starts an LLM Agent Loop that iteratively uses FlowMCP schema tools to solve problems.",
-    "main": "./src/index.mjs",
     "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
     "exports": {
-        ".": "./src/index.mjs",
-        "./a2a": "./src/a2a/index.mjs"
+        ".": {
+            "types": "./dist/types/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./a2a": {
+            "types": "./dist/a2a/index.d.ts",
+            "default": "./dist/a2a/index.js"
+        }
     },
     "scripts": {
-        "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
-        "test:coverage:src": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage --collectCoverageFrom='src/**/*.mjs'",
-        "test:file": "NODE_OPTIONS='--experimental-vm-modules' jest",
+        "build": "tsc",
+        "prepublishOnly": "npm run build",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage:src": "vitest run --coverage",
         "test:agentprobe": "node tests/manual/agentprobe-test.mjs"
     },
     "author": "FlowMCP",
@@ -27,7 +36,10 @@
         "express": "^4.21.0"
     },
     "devDependencies": {
-        "@jest/globals": "^29.7.0",
-        "jest": "^29.7.0"
+        "@types/express": "^5.0.0",
+        "@types/node": "^22.0.0",
+        "@vitest/coverage-v8": "^3.0.0",
+        "typescript": "^5.7.0",
+        "vitest": "^3.0.0"
     }
 }
