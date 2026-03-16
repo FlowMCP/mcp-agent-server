@@ -1,15 +1,17 @@
 import { FlowMCP } from 'flowmcp/v1'
 
-
-class InProcessToolClient {
-    #tools
+import type { ToolClient, Tool, ToolResult } from '../types/index.js'
 
 
-    constructor( { schemas, serverParams = {} } ) {
+class InProcessToolClient implements ToolClient {
+    #tools: Map<string, { name: string, description: string, inputSchema: any, func: ( args: any ) => Promise<any> }>
+
+
+    constructor( { schemas, serverParams = {} }: { schemas: any[], serverParams?: Record<string, string> } ) {
         this.#tools = new Map()
 
         schemas
-            .forEach( ( schema ) => {
+            .forEach( ( schema: any ) => {
                 const routeNames = Object.keys( schema.routes )
                 routeNames
                     .forEach( ( routeName ) => {
@@ -22,7 +24,7 @@ class InProcessToolClient {
     }
 
 
-    async listTools() {
+    async listTools(): Promise<{ tools: Tool[] }> {
         const tools = [ ...this.#tools.values() ]
             .map( ( { name, description, inputSchema } ) => {
                 return { name, description, inputSchema }
@@ -32,7 +34,7 @@ class InProcessToolClient {
     }
 
 
-    async callTool( { name, arguments: args } ) {
+    async callTool( { name, arguments: args }: { name: string, arguments: Record<string, unknown> } ): Promise<ToolResult> {
         const tool = this.#tools.get( name )
 
         if( !tool ) {
@@ -48,7 +50,7 @@ class InProcessToolClient {
     }
 
 
-    close() {
+    async close(): Promise<void> {
         // no-op — in-process, nothing to close
     }
 }

@@ -1,18 +1,19 @@
-import { InProcessToolClient } from '../client/InProcessToolClient.mjs'
-import { CompositeToolClient } from '../client/CompositeToolClient.mjs'
-import { SubAgentToolClient } from '../client/SubAgentToolClient.mjs'
+import { InProcessToolClient } from '../client/InProcessToolClient.js'
+import { CompositeToolClient } from '../client/CompositeToolClient.js'
+import { SubAgentToolClient } from '../client/SubAgentToolClient.js'
+import type { ToolClient } from '../types/index.js'
 
 
 class ToolRegistry {
-    #tools
+    #tools: Map<string, any>
 
 
-    constructor( { tools } ) {
+    constructor( { tools }: { tools: Map<string, any> } ) {
         this.#tools = tools
     }
 
 
-    static create( { toolConfigs } ) {
+    static create( { toolConfigs }: { toolConfigs: any[] } ) {
         const tools = new Map()
 
         toolConfigs
@@ -33,7 +34,7 @@ class ToolRegistry {
             .map( ( config ) => {
                 const { name, description, inputSchema, execution } = config
 
-                const entry = { name, description, inputSchema }
+                const entry: Record<string, any> = { name, description, inputSchema }
 
                 if( execution ) {
                     entry.execution = execution
@@ -46,14 +47,14 @@ class ToolRegistry {
     }
 
 
-    getToolConfig( { name } ) {
+    getToolConfig( { name }: { name: string } ) {
         const toolConfig = this.#tools.get( name ) || null
 
         return { toolConfig }
     }
 
 
-    async createToolClient( { name } ) {
+    async createToolClient( { name }: { name: string } ): Promise<{ toolClient: ToolClient | null }> {
         const { toolConfig } = this.getToolConfig( { name } )
 
         if( !toolConfig ) {
@@ -66,14 +67,14 @@ class ToolRegistry {
             return { toolClient: null }
         }
 
-        const clients = []
+        const clients: ToolClient[] = []
 
         const clientPromises = toolSources
-            .map( async ( source ) => {
+            .map( async ( source: any ) => {
                 const client = ToolRegistry.#createClientFromSource( { source } )
 
-                if( client && client.connect ) {
-                    await client.connect()
+                if( client && ( client as any ).connect ) {
+                    await ( client as any ).connect()
                 }
 
                 return client
@@ -82,7 +83,7 @@ class ToolRegistry {
         const resolvedClients = await Promise.all( clientPromises )
         resolvedClients
             .filter( Boolean )
-            .forEach( ( client ) => { clients.push( client ) } )
+            .forEach( ( client ) => { clients.push( client as ToolClient ) } )
 
         if( clients.length === 0 ) {
             return { toolClient: null }
@@ -100,16 +101,16 @@ class ToolRegistry {
     }
 
 
-    static fromManifest( { manifest, toolSources } ) {
+    static fromManifest( { manifest, toolSources }: { manifest: Record<string, any>, toolSources: any[] } ) {
         const agentConfig = {
-            systemPrompt: manifest[ 'systemPrompt' ],
-            model: manifest[ 'model' ],
+            systemPrompt: manifest[ 'systemPrompt' ] as string,
+            model: manifest[ 'model' ] as string,
             maxRounds: manifest[ 'maxRounds' ] || 10,
             maxTokens: manifest[ 'maxTokens' ] || 4096
         }
 
-        const name = manifest[ 'name' ]
-        const description = manifest[ 'description' ]
+        const name = manifest[ 'name' ] as string
+        const description = manifest[ 'description' ] as string
         const inputSchema = manifest[ 'inputSchema' ] || {
             type: 'object',
             properties: {
@@ -134,7 +135,7 @@ class ToolRegistry {
     }
 
 
-    static #createClientFromSource( { source } ) {
+    static #createClientFromSource( { source }: { source: any } ): ToolClient | null {
         const { type } = source
 
         if( type === 'flowmcp' ) {

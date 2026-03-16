@@ -1,17 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk'
 
+import type { ToolClient, StatusUpdate, JSONSchema } from '../types/index.js'
+
 
 class AgentLoop {
-    static async start( { query, toolClient, systemPrompt, model, maxRounds = 10, maxTokens = 4096, onStatus, baseURL, apiKey, answerSchema = null, discovery = false } ) {
+    static async start( { query, toolClient, systemPrompt, model, maxRounds = 10, maxTokens = 4096, onStatus, baseURL, apiKey, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds?: number, maxTokens?: number, onStatus?: ( params: StatusUpdate ) => void, baseURL?: string, apiKey?: string, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
         const startTime = Date.now()
         let totalInputTokens = 0
         let totalOutputTokens = 0
-        const toolCallLog = []
+        const toolCallLog: Array<{ name: string, input: any, duration: number, success: boolean, error?: string }> = []
 
         const { tools: clientTools } = await toolClient.listTools()
 
         const anthropicTools = clientTools
-            .map( ( tool ) => {
+            .map( ( tool: any ) => {
                 const { name, description, inputSchema } = tool
 
                 return { name, description, input_schema: inputSchema }
@@ -19,7 +21,7 @@ class AgentLoop {
 
         const answerToolName = 'submit_answer'
         const { answerTool } = AgentLoop.#buildAnswerTool( { answerToolName, answerSchema } )
-        const builtinTools = [ answerTool ]
+        const builtinTools: any[] = [ answerTool ]
 
         if( discovery ) {
             const { discoveryTool } = AgentLoop.#buildDiscoveryTool()
@@ -28,11 +30,11 @@ class AgentLoop {
 
         const allTools = [ ...anthropicTools, ...builtinTools ]
 
-        const messages = [
+        const messages: any[] = [
             { role: 'user', content: query }
         ]
 
-        const clientConfig = {}
+        const clientConfig: Record<string, string> = {}
         if( baseURL ) { clientConfig.baseURL = baseURL }
         if( apiKey ) { clientConfig.apiKey = apiKey }
 
@@ -57,7 +59,7 @@ class AgentLoop {
                 model,
                 max_tokens: maxTokens,
                 system: systemPrompt,
-                tools: allTools,
+                tools: allTools as any,
                 messages
             } )
 
@@ -67,7 +69,7 @@ class AgentLoop {
             const { content } = response
 
             const submitBlock = content
-                .find( ( block ) => block.type === 'tool_use' && block.name === answerToolName )
+                .find( ( block: any ) => block.type === 'tool_use' && block.name === answerToolName )
 
             if( submitBlock ) {
                 const duration = Date.now() - startTime
@@ -75,7 +77,7 @@ class AgentLoop {
                 const result = AgentLoop
                     .#buildResult( {
                         query,
-                        parsedResult: submitBlock.input,
+                        parsedResult: ( submitBlock as any ).input,
                         toolCallLog,
                         totalInputTokens,
                         totalOutputTokens,
@@ -92,7 +94,7 @@ class AgentLoop {
             }
 
             const hasToolUse = content
-                .some( ( block ) => block.type === 'tool_use' )
+                .some( ( block: any ) => block.type === 'tool_use' )
 
             if( !hasToolUse || round > maxRounds ) {
                 if( !hasRequestedSubmit && toolCallLog.length > 0 && round <= maxRounds ) {
@@ -109,8 +111,8 @@ class AgentLoop {
                 }
 
                 const textBlocks = content
-                    .filter( ( block ) => block.type === 'text' )
-                    .map( ( block ) => block.text )
+                    .filter( ( block: any ) => block.type === 'text' )
+                    .map( ( block: any ) => block.text )
 
                 const finalText = textBlocks.join( '\n' )
                 const duration = Date.now() - startTime
@@ -137,10 +139,10 @@ class AgentLoop {
             messages.push( { role: 'assistant', content } )
 
             const toolUseBlocks = content
-                .filter( ( block ) => block.type === 'tool_use' )
+                .filter( ( block: any ) => block.type === 'tool_use' )
 
             const toolResultPromises = toolUseBlocks
-                .map( async ( toolUse ) => {
+                .map( async ( toolUse: any ) => {
                     const { id, name, input } = toolUse
 
                     if( onStatus ) {
@@ -160,8 +162,8 @@ class AgentLoop {
 
                         const maxResultLength = 8000
                         const fullResultText = callResult.content
-                            .filter( ( c ) => c.type === 'text' )
-                            .map( ( c ) => c.text )
+                            .filter( ( c: any ) => c.type === 'text' )
+                            .map( ( c: any ) => c.text )
                             .join( '\n' )
 
                         let resultText = fullResultText
@@ -175,7 +177,7 @@ class AgentLoop {
                             tool_use_id: id,
                             content: resultText
                         }
-                    } catch( error ) {
+                    } catch( error: any ) {
                         const callDuration = Date.now() - callStart
 
                         toolCallLog.push( { name, input, duration: callDuration, success: false, error: error.message } )
@@ -196,15 +198,15 @@ class AgentLoop {
     }
 
 
-    static #buildResult( { query, finalText, parsedResult, toolCallLog, totalInputTokens, totalOutputTokens, model, round, duration } ) {
+    static #buildResult( { query, finalText, parsedResult, toolCallLog, totalInputTokens, totalOutputTokens, model, round, duration }: { query: string, finalText?: string, parsedResult?: any, toolCallLog: any[], totalInputTokens: number, totalOutputTokens: number, model: string, round: number, duration: number } ) {
         if( !parsedResult ) {
             try {
-                const jsonMatch = finalText.match( /```json\s*([\s\S]*?)```/ )
+                const jsonMatch = finalText!.match( /```json\s*([\s\S]*?)```/ )
 
                 if( jsonMatch ) {
                     parsedResult = JSON.parse( jsonMatch[ 1 ].trim() )
                 } else {
-                    parsedResult = JSON.parse( finalText )
+                    parsedResult = JSON.parse( finalText! )
                 }
             } catch {
                 parsedResult = { text: finalText }
@@ -220,9 +222,10 @@ class AgentLoop {
 
         breakdown.unshift( {
             type: 'llm',
+            name: model,
             calls: round,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens
+            duration: 0,
+            success: true
         } )
 
         const result = {
@@ -244,7 +247,7 @@ class AgentLoop {
     }
 
 
-    static #buildAnswerTool( { answerToolName, answerSchema } ) {
+    static #buildAnswerTool( { answerToolName, answerSchema }: { answerToolName: string, answerSchema: JSONSchema | null } ) {
         const defaultSchema = {
             type: 'object',
             properties: {
@@ -311,7 +314,7 @@ class AgentLoop {
     }
 
 
-    static async #handleDiscovery( { input } ) {
+    static async #handleDiscovery( { input }: { input: { url: string } } ) {
         const { url } = input
         const agentCardUrl = `${url.replace( /\/$/, '' )}/.well-known/agent.json`
 
@@ -331,7 +334,7 @@ class AgentLoop {
             return {
                 content: [ { type: 'text', text } ]
             }
-        } catch( error ) {
+        } catch( error: any ) {
             return {
                 content: [ { type: 'text', text: `Discovery failed: ${error.message}` } ],
                 isError: true

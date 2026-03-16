@@ -3,17 +3,17 @@ import { isTerminal } from '@modelcontextprotocol/sdk/experimental/tasks/interfa
 
 
 class TaskManager {
-    #taskStore
-    #taskResolvers
+    #taskStore: any
+    #taskResolvers: Map<string, Array<() => void>>
 
 
-    constructor( { taskStore = null } ) {
+    constructor( { taskStore = null }: { taskStore?: any } ) {
         this.#taskStore = taskStore || new InMemoryTaskStore()
         this.#taskResolvers = new Map()
     }
 
 
-    async createTask( { requestId, request, sessionId, taskParams } ) {
+    async createTask( { requestId, request, sessionId, taskParams }: { requestId: string, request: any, sessionId: string, taskParams: any } ) {
         const taskOptions = {
             ttl: taskParams.ttl,
             pollInterval: taskParams.pollInterval ?? 1000
@@ -30,14 +30,14 @@ class TaskManager {
     }
 
 
-    async completeTask( { taskId, result } ) {
+    async completeTask( { taskId, result }: { taskId: string, result: any } ) {
         await this.#taskStore.storeTaskResult( taskId, 'completed', result )
 
         TaskManager.#notifyResolvers( { taskId, taskResolvers: this.#taskResolvers } )
     }
 
 
-    async failTask( { taskId, error } ) {
+    async failTask( { taskId, error }: { taskId: string, error: Error } ) {
         const errorResult = {
             content: [
                 {
@@ -54,14 +54,14 @@ class TaskManager {
     }
 
 
-    async getTask( { taskId } ) {
+    async getTask( { taskId }: { taskId: string } ) {
         const task = await this.#taskStore.getTask( taskId )
 
         return { task }
     }
 
 
-    async getTaskResult( { taskId } ) {
+    async getTaskResult( { taskId }: { taskId: string } ) {
         const { task } = await this.getTask( { taskId } )
 
         if( !task ) {
@@ -82,7 +82,7 @@ class TaskManager {
     }
 
 
-    async cancelTask( { taskId } ) {
+    async cancelTask( { taskId }: { taskId: string } ) {
         const { task } = await this.getTask( { taskId } )
 
         if( !task ) {
@@ -101,8 +101,8 @@ class TaskManager {
     }
 
 
-    async updateTaskStatus( { taskId, status, statusMessage } ) {
-        await this.#taskStore.updateTaskStatus( taskId, status, statusMessage )
+    async updateTaskStatus( { taskId, status }: { taskId: string, status: string } ) {
+        await this.#taskStore.updateTaskStatus( taskId, status )
 
         if( isTerminal( status ) ) {
             TaskManager.#notifyResolvers( { taskId, taskResolvers: this.#taskResolvers } )
@@ -110,8 +110,8 @@ class TaskManager {
     }
 
 
-    async listTasks( { cursor, limit = 50 } = {} ) {
-        const allTasks = []
+    async listTasks( { cursor, limit = 50 }: { cursor?: string, limit?: number } = {} ) {
+        const allTasks: any[] = []
         const store = this.#taskStore
 
         if( store.listTasks ) {
@@ -129,7 +129,7 @@ class TaskManager {
     }
 
 
-    static #notifyResolvers( { taskId, taskResolvers } ) {
+    static #notifyResolvers( { taskId, taskResolvers }: { taskId: string, taskResolvers: Map<string, Array<() => void>> } ) {
         const resolvers = taskResolvers.get( taskId )
 
         if( resolvers ) {
@@ -139,8 +139,8 @@ class TaskManager {
     }
 
 
-    static #waitForComplete( { taskId, taskResolvers } ) {
-        return new Promise( ( resolve ) => {
+    static #waitForComplete( { taskId, taskResolvers }: { taskId: string, taskResolvers: Map<string, Array<() => void>> } ) {
+        return new Promise<void>( ( resolve ) => {
             const existing = taskResolvers.get( taskId ) || []
             existing.push( resolve )
             taskResolvers.set( taskId, existing )

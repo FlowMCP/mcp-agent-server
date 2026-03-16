@@ -1,6 +1,6 @@
 class AgentCardGenerator {
-    static generate( { manifest, serverUrl } ) {
-        const { name, description, inputSchema } = manifest
+    static generate( { manifest, serverUrl }: { manifest: Record<string, any>, serverUrl: string } ) {
+        const { name, description } = manifest
 
         const skills = AgentCardGenerator.#buildSkills( { manifest } )
 
@@ -19,9 +19,9 @@ class AgentCardGenerator {
     }
 
 
-    static #buildSkills( { manifest } ) {
+    static #buildSkills( { manifest }: { manifest: Record<string, any> } ) {
         const { name, description, inputSchema, skills: manifestSkills } = manifest
-        const result = []
+        const result: any[] = []
 
         const defaultSkill = {
             id: name,

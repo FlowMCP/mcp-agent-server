@@ -1,30 +1,27 @@
-import { randomUUID } from 'node:crypto'
-
-
-class Resolver {
-    #done
-    #promise
-    #resolve
-    #reject
+class Resolver<T = any> {
+    #done: boolean
+    #promise: Promise<T>
+    #resolve!: ( value: T ) => void
+    #reject!: ( error: Error ) => void
 
 
     constructor() {
         this.#done = false
-        this.#promise = new Promise( ( resolve, reject ) => {
+        this.#promise = new Promise<T>( ( resolve, reject ) => {
             this.#resolve = resolve
             this.#reject = reject
         } )
     }
 
 
-    setResult( value ) {
+    setResult( value: T ) {
         if( this.#done ) { return }
         this.#done = true
         this.#resolve( value )
     }
 
 
-    setException( error ) {
+    setException( error: Error ) {
         if( this.#done ) { return }
         this.#done = true
         this.#reject( error )
@@ -43,14 +40,14 @@ class Resolver {
 
 
 class TaskSession {
-    #server
-    #taskId
-    #store
-    #queue
-    #requestCounter
+    #server: any
+    #taskId: string
+    #store: any
+    #queue: any
+    #requestCounter: number
 
 
-    constructor( { server, taskId, store, queue } ) {
+    constructor( { server, taskId, store, queue }: { server: any, taskId: string, store: any, queue: any } ) {
         this.#server = server
         this.#taskId = taskId
         this.#store = store
@@ -66,7 +63,7 @@ class TaskSession {
     }
 
 
-    async elicit( { message, requestedSchema } ) {
+    async elicit( { message, requestedSchema }: { message: string, requestedSchema: any } ) {
         await this.#store.updateTaskStatus( this.#taskId, 'input_required' )
 
         const requestId = this.#nextRequestId()
@@ -107,7 +104,7 @@ class TaskSession {
     }
 
 
-    async createMessage( { messages, maxTokens } ) {
+    async createMessage( { messages, maxTokens }: { messages: any[], maxTokens: number } ) {
         await this.#store.updateTaskStatus( this.#taskId, 'input_required' )
 
         const requestId = this.#nextRequestId()

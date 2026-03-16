@@ -42,7 +42,7 @@ export interface ToolSource {
 
 
 export interface ToolClient {
-    listTools(): Promise<Tool[]>
+    listTools(): Promise<{ tools: Tool[] }>
     callTool( params: { name: string, arguments: Record<string, unknown> } ): Promise<ToolResult>
     close(): Promise<void>
 }

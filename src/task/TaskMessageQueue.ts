@@ -1,6 +1,15 @@
+interface QueuedMessage {
+    type: 'notification' | 'request'
+    message: any
+    timestamp: number
+    resolver?: any
+    originalRequestId?: string
+}
+
+
 class TaskMessageQueue {
-    #queues
-    #waitResolvers
+    #queues: Map<string, QueuedMessage[]>
+    #waitResolvers: Map<string, Array<() => void>>
 
 
     constructor() {
@@ -9,7 +18,7 @@ class TaskMessageQueue {
     }
 
 
-    #getQueue( taskId ) {
+    #getQueue( taskId: string ): QueuedMessage[] {
         let queue = this.#queues.get( taskId )
 
         if( !queue ) {
@@ -21,17 +30,17 @@ class TaskMessageQueue {
     }
 
 
-    async enqueue( { taskId, message } ) {
+    async enqueue( { taskId, message }: { taskId: string, message: any } ) {
         const queue = this.#getQueue( taskId )
         queue.push( { type: 'notification', message, timestamp: Date.now() } )
         this.#notifyWaiters( taskId )
     }
 
 
-    async enqueueWithResolver( { taskId, message, resolver, originalRequestId } ) {
+    async enqueueWithResolver( { taskId, message, resolver, originalRequestId }: { taskId: string, message: any, resolver: any, originalRequestId: string } ) {
         const queue = this.#getQueue( taskId )
 
-        const queuedMessage = {
+        const queuedMessage: QueuedMessage = {
             type: 'request',
             message,
             timestamp: Date.now(),
@@ -44,14 +53,14 @@ class TaskMessageQueue {
     }
 
 
-    async dequeue( { taskId } ) {
+    async dequeue( { taskId }: { taskId: string } ): Promise<QueuedMessage | null> {
         const queue = this.#getQueue( taskId )
 
         return queue.shift() || null
     }
 
 
-    async dequeueAll( { taskId } ) {
+    async dequeueAll( { taskId }: { taskId: string } ): Promise<QueuedMessage[]> {
         const queue = this.#queues.get( taskId ) || []
         this.#queues.delete( taskId )
 
@@ -59,12 +68,12 @@ class TaskMessageQueue {
     }
 
 
-    async waitForMessage( { taskId } ) {
+    async waitForMessage( { taskId }: { taskId: string } ) {
         const queue = this.#getQueue( taskId )
 
         if( queue.length > 0 ) { return }
 
-        return new Promise( ( resolve ) => {
+        return new Promise<void>( ( resolve ) => {
             let waiters = this.#waitResolvers.get( taskId )
 
             if( !waiters ) {
@@ -77,7 +86,7 @@ class TaskMessageQueue {
     }
 
 
-    #notifyWaiters( taskId ) {
+    #notifyWaiters( taskId: string ) {
         const waiters = this.#waitResolvers.get( taskId )
 
         if( waiters ) {

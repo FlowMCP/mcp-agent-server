@@ -1,9 +1,11 @@
-import { describe, test, expect, jest } from '@jest/globals'
+import { describe, test, expect, vi } from 'vitest'
 
 
-const mockPrepareServerTool = jest.fn()
+const { mockPrepareServerTool } = vi.hoisted( () => {
+    return { mockPrepareServerTool: vi.fn() }
+} )
 
-jest.unstable_mockModule( 'flowmcp/v1', () => {
+vi.mock( 'flowmcp/v1', () => {
     return {
         FlowMCP: {
             prepareServerTool: mockPrepareServerTool
@@ -11,13 +13,13 @@ jest.unstable_mockModule( 'flowmcp/v1', () => {
     }
 } )
 
-const { InProcessToolClient } = await import( '../../src/client/InProcessToolClient.mjs' )
+import { InProcessToolClient } from '../../src/client/InProcessToolClient.js'
 
 
 describe( 'InProcessToolClient', () => {
     describe( 'constructor', () => {
         test( 'prepares tools from schemas with routes', () => {
-            const mockFunc = jest.fn()
+            const mockFunc = vi.fn()
 
             mockPrepareServerTool
                 .mockReturnValueOnce( {
@@ -52,7 +54,7 @@ describe( 'InProcessToolClient', () => {
                 toolName: 'tool_a',
                 description: 'Tool A',
                 zod: { type: 'object' },
-                func: jest.fn()
+                func: vi.fn()
             } )
 
             const serverParams = { apiKey: 'test-key' }
@@ -80,13 +82,13 @@ describe( 'InProcessToolClient', () => {
                     toolName: 'api_getList',
                     description: 'Get list',
                     zod: { type: 'object' },
-                    func: jest.fn()
+                    func: vi.fn()
                 } )
                 .mockReturnValueOnce( {
                     toolName: 'api_getDetail',
                     description: 'Get detail',
                     zod: { type: 'object' },
-                    func: jest.fn()
+                    func: vi.fn()
                 } )
 
             const client = new InProcessToolClient( {
@@ -108,13 +110,13 @@ describe( 'InProcessToolClient', () => {
                     toolName: 'tool_a',
                     description: 'Tool A',
                     zod: { type: 'object', properties: { q: { type: 'string' } } },
-                    func: jest.fn()
+                    func: vi.fn()
                 } )
                 .mockReturnValueOnce( {
                     toolName: 'tool_b',
                     description: 'Tool B',
                     zod: { type: 'object', properties: {} },
-                    func: jest.fn()
+                    func: vi.fn()
                 } )
 
             const client = new InProcessToolClient( {
@@ -150,7 +152,7 @@ describe( 'InProcessToolClient', () => {
         test( 'calls the correct tool function with arguments', async () => {
             mockPrepareServerTool.mockReset()
 
-            const mockFuncA = jest.fn().mockResolvedValue( {
+            const mockFuncA = vi.fn().mockResolvedValue( {
                 content: [ { type: 'text', text: 'Result: {"data": "test"}' } ]
             } )
 
@@ -182,7 +184,7 @@ describe( 'InProcessToolClient', () => {
                 toolName: 'known_tool',
                 description: 'Known',
                 zod: { type: 'object' },
-                func: jest.fn()
+                func: vi.fn()
             } )
 
             const client = new InProcessToolClient( {

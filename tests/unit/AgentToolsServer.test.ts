@@ -1,13 +1,18 @@
-import { describe, test, expect, jest, beforeEach } from '@jest/globals'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 
-const mockServerConnect = jest.fn()
-const mockSetRequestHandler = jest.fn()
+const mockServerConnect = vi.fn()
+const mockSetRequestHandler = vi.fn()
 
-jest.unstable_mockModule( '@modelcontextprotocol/sdk/server/index.js', () => {
+vi.mock( '@modelcontextprotocol/sdk/server/index.js', () => {
     return {
         Server: class MockServer {
-            constructor( info, options ) {
+            info: unknown
+            options: unknown
+            connect: ReturnType<typeof vi.fn>
+            setRequestHandler: ReturnType<typeof vi.fn>
+
+            constructor( info: unknown, options: unknown ) {
                 this.info = info
                 this.options = options
                 this.connect = mockServerConnect
@@ -17,19 +22,23 @@ jest.unstable_mockModule( '@modelcontextprotocol/sdk/server/index.js', () => {
     }
 } )
 
-jest.unstable_mockModule( '@modelcontextprotocol/sdk/server/streamableHttp.js', () => {
+vi.mock( '@modelcontextprotocol/sdk/server/streamableHttp.js', () => {
     return {
         StreamableHTTPServerTransport: class MockTransport {
-            constructor( opts ) {
+            opts: unknown
+            handleRequest: ReturnType<typeof vi.fn>
+            close: ReturnType<typeof vi.fn>
+
+            constructor( opts: unknown ) {
                 this.opts = opts
-                this.handleRequest = jest.fn()
-                this.close = jest.fn()
+                this.handleRequest = vi.fn()
+                this.close = vi.fn()
             }
         }
     }
 } )
 
-jest.unstable_mockModule( '@modelcontextprotocol/sdk/types.js', () => {
+vi.mock( '@modelcontextprotocol/sdk/types.js', () => {
     return {
         ListToolsRequestSchema: 'ListToolsRequestSchema',
         CallToolRequestSchema: 'CallToolRequestSchema',
@@ -38,33 +47,38 @@ jest.unstable_mockModule( '@modelcontextprotocol/sdk/types.js', () => {
     }
 } )
 
-jest.unstable_mockModule( '@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js', () => {
+vi.mock( '@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js', () => {
     return {
         InMemoryTaskStore: class MockTaskStore {
+            createTask: ReturnType<typeof vi.fn>
+            getTask: ReturnType<typeof vi.fn>
+            getTaskResult: ReturnType<typeof vi.fn>
+            storeTaskResult: ReturnType<typeof vi.fn>
+
             constructor() {
-                this.createTask = jest.fn()
-                this.getTask = jest.fn()
-                this.getTaskResult = jest.fn()
-                this.storeTaskResult = jest.fn()
+                this.createTask = vi.fn()
+                this.getTask = vi.fn()
+                this.getTaskResult = vi.fn()
+                this.storeTaskResult = vi.fn()
             }
         }
     }
 } )
 
-jest.unstable_mockModule( '@modelcontextprotocol/sdk/experimental/tasks/interfaces.js', () => {
+vi.mock( '@modelcontextprotocol/sdk/experimental/tasks/interfaces.js', () => {
     return {
-        isTerminal: jest.fn( ( status ) => status === 'completed' || status === 'failed' || status === 'cancelled' )
+        isTerminal: vi.fn( ( status: string ) => status === 'completed' || status === 'failed' || status === 'cancelled' )
     }
 } )
 
-const mockPrepareServerTool = jest.fn().mockReturnValue( {
+const mockPrepareServerTool = vi.fn().mockReturnValue( {
     toolName: 'mock_tool',
     description: 'Mock',
     zod: { type: 'object' },
-    func: jest.fn()
+    func: vi.fn()
 } )
 
-jest.unstable_mockModule( 'flowmcp', () => {
+vi.mock( 'flowmcp', () => {
     return {
         FlowMCP: {
             prepareServerTool: mockPrepareServerTool
@@ -72,7 +86,7 @@ jest.unstable_mockModule( 'flowmcp', () => {
     }
 } )
 
-const { AgentToolsServer } = await import( '../../src/AgentToolsServer.mjs' )
+import { AgentToolsServer } from '../../src/AgentToolsServer.js'
 
 
 const testConfig = {
@@ -141,7 +155,7 @@ describe( 'AgentToolsServer', () => {
             toolName: 'mock_tool',
             description: 'Mock',
             zod: { type: 'object' },
-            func: jest.fn()
+            func: vi.fn()
         } )
     } )
 
@@ -156,7 +170,7 @@ describe( 'AgentToolsServer', () => {
 
         test( 'uses default routePath when not specified', async () => {
             const configWithoutRoute = { ...testConfig }
-            delete configWithoutRoute.routePath
+            delete ( configWithoutRoute as Record<string, unknown> ).routePath
 
             const { mcp } = await AgentToolsServer.create( configWithoutRoute )
 
@@ -182,7 +196,7 @@ describe( 'AgentToolsServer', () => {
 
             const { tools } = mcp.listToolDefinitions()
             const researchTool = tools
-                .find( ( t ) => t.name === 'test-research' )
+                .find( ( t: { name: string } ) => t.name === 'test-research' )
 
             expect( researchTool.execution ).toEqual( { taskSupport: 'optional' } )
         } )
@@ -205,7 +219,7 @@ describe( 'AgentToolsServer', () => {
 
             const req = { path: '/other', method: 'POST' }
             const res = {}
-            const next = jest.fn()
+            const next = vi.fn()
 
             await mcpMiddleware( req, res, next )
 
@@ -225,12 +239,12 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {
-                status: jest.fn().mockReturnThis(),
-                json: jest.fn(),
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
                 headersSent: false
             }
 
-            const next = jest.fn()
+            const next = vi.fn()
 
             await mcpMiddleware( req, res, next )
 
@@ -252,15 +266,15 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {
-                status: jest.fn().mockReturnThis(),
-                json: jest.fn(),
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
                 headersSent: false
             }
 
-            await mcpMiddleware( req, res, jest.fn() )
+            await mcpMiddleware( req, res, vi.fn() )
 
             const handlerSchemas = mockSetRequestHandler.mock.calls
-                .map( ( call ) => call[ 0 ] )
+                .map( ( call: unknown[] ) => call[ 0 ] )
 
             expect( handlerSchemas ).toContain( 'ListToolsRequestSchema' )
             expect( handlerSchemas ).toContain( 'CallToolRequestSchema' )
@@ -281,12 +295,12 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {
-                status: jest.fn().mockReturnThis(),
-                json: jest.fn(),
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
                 headersSent: false
             }
 
-            await mcpMiddleware( req, res, jest.fn() )
+            await mcpMiddleware( req, res, vi.fn() )
 
             expect( res.status ).toHaveBeenCalledWith( 400 )
             expect( res.json ).toHaveBeenCalledWith(
@@ -309,11 +323,11 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {
-                status: jest.fn().mockReturnThis(),
-                json: jest.fn()
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn()
             }
 
-            await mcpMiddleware( req, res, jest.fn() )
+            await mcpMiddleware( req, res, vi.fn() )
 
             expect( res.status ).toHaveBeenCalledWith( 400 )
         } )
@@ -330,11 +344,11 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {
-                status: jest.fn().mockReturnThis(),
-                json: jest.fn()
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn()
             }
 
-            await mcpMiddleware( req, res, jest.fn() )
+            await mcpMiddleware( req, res, vi.fn() )
 
             expect( res.status ).toHaveBeenCalledWith( 400 )
         } )
@@ -351,7 +365,7 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {}
-            const next = jest.fn()
+            const next = vi.fn()
 
             await mcpMiddleware( req, res, next )
 
@@ -371,15 +385,15 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {
-                status: jest.fn().mockReturnThis(),
-                json: jest.fn(),
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
                 headersSent: false
             }
 
-            await mcpMiddleware( req, res, jest.fn() )
+            await mcpMiddleware( req, res, vi.fn() )
 
             const listToolsHandler = mockSetRequestHandler.mock.calls
-                .find( ( call ) => call[ 0 ] === 'ListToolsRequestSchema' )[ 1 ]
+                .find( ( call: unknown[] ) => call[ 0 ] === 'ListToolsRequestSchema' )[ 1 ]
 
             const result = await listToolsHandler()
 
@@ -401,15 +415,15 @@ describe( 'AgentToolsServer', () => {
             }
 
             const res = {
-                status: jest.fn().mockReturnThis(),
-                json: jest.fn(),
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
                 headersSent: false
             }
 
-            await mcpMiddleware( req, res, jest.fn() )
+            await mcpMiddleware( req, res, vi.fn() )
 
             const callToolHandler = mockSetRequestHandler.mock.calls
-                .find( ( call ) => call[ 0 ] === 'CallToolRequestSchema' )[ 1 ]
+                .find( ( call: unknown[] ) => call[ 0 ] === 'CallToolRequestSchema' )[ 1 ]
 
             const result = await callToolHandler(
                 { params: { name: 'nonexistent', arguments: {} } },

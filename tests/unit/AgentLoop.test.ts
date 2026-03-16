@@ -1,11 +1,13 @@
-import { describe, test, expect, jest, beforeEach } from '@jest/globals'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 
-const mockCreate = jest.fn()
+const mockCreate = vi.fn()
 
-jest.unstable_mockModule( '@anthropic-ai/sdk', () => {
+vi.mock( '@anthropic-ai/sdk', () => {
     return {
         default: class MockAnthropic {
+            messages: { create: ReturnType<typeof vi.fn> }
+
             constructor() {
                 this.messages = { create: mockCreate }
             }
@@ -13,13 +15,13 @@ jest.unstable_mockModule( '@anthropic-ai/sdk', () => {
     }
 } )
 
-const { AgentLoop } = await import( '../../src/agent/AgentLoop.mjs' )
+import { AgentLoop } from '../../src/agent/AgentLoop.js'
 
 
-const createMockToolClient = ( { tools = [] } = {} ) => {
+const createMockToolClient = ( { tools = [] as unknown[] } = {} ) => {
     return {
-        listTools: jest.fn().mockResolvedValue( { tools } ),
-        callTool: jest.fn().mockResolvedValue( {
+        listTools: vi.fn().mockResolvedValue( { tools } ),
+        callTool: vi.fn().mockResolvedValue( {
             content: [ { type: 'text', text: '{"result": "mock tool response"}' } ]
         } )
     }
@@ -131,7 +133,7 @@ describe( 'AgentLoop', () => {
         } )
 
         const toolBreakdown = result.costs.breakdown
-            .find( ( b ) => b.type === 'tool' )
+            .find( ( b: { type: string } ) => b.type === 'tool' )
 
         expect( toolBreakdown.name ).toBe( 'get_prices' )
         expect( toolBreakdown.success ).toBe( true )
@@ -192,7 +194,7 @@ describe( 'AgentLoop', () => {
         expect( result.result.title ).toBe( 'Error Report' )
 
         const toolBreakdown = result.costs.breakdown
-            .find( ( b ) => b.type === 'tool' )
+            .find( ( b: { type: string } ) => b.type === 'tool' )
 
         expect( toolBreakdown.success ).toBe( false )
     } )
@@ -249,7 +251,7 @@ describe( 'AgentLoop', () => {
         } )
 
         const toolClient = createMockToolClient( { tools: [] } )
-        const statusUpdates = []
+        const statusUpdates: unknown[] = []
 
         await AgentLoop
             .start( {
@@ -259,14 +261,14 @@ describe( 'AgentLoop', () => {
                 model: 'anthropic/claude-sonnet-4.5',
                 maxRounds: 5,
                 maxTokens: 1024,
-                onStatus: ( update ) => {
+                onStatus: ( update: unknown ) => {
                     statusUpdates.push( update )
                 }
             } )
 
         expect( statusUpdates.length ).toBeGreaterThanOrEqual( 2 )
-        expect( statusUpdates[ 0 ].status ).toBe( 'working' )
-        expect( statusUpdates[ statusUpdates.length - 1 ].status ).toBe( 'completed' )
+        expect( ( statusUpdates[ 0 ] as { status: string } ).status ).toBe( 'working' )
+        expect( ( statusUpdates[ statusUpdates.length - 1 ] as { status: string } ).status ).toBe( 'completed' )
     } )
 
 
@@ -435,7 +437,7 @@ describe( 'AgentLoop', () => {
 
         const calledTools = mockCreate.mock.calls[ 0 ][ 0 ].tools
         const answerTool = calledTools
-            .find( ( t ) => t.name === 'submit_answer' )
+            .find( ( t: { name: string } ) => t.name === 'submit_answer' )
 
         expect( answerTool.input_schema ).toEqual( customSchema )
     } )

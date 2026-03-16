@@ -1,14 +1,14 @@
-import { describe, test, expect, jest } from '@jest/globals'
-import { CompositeToolClient } from '../../src/client/CompositeToolClient.mjs'
+import { describe, test, expect, vi } from 'vitest'
+import { CompositeToolClient } from '../../src/client/CompositeToolClient.js'
 
 
-const createMockClient = ( { tools = [] } = {} ) => {
+const createMockClient = ( { tools = [] as unknown[] } = {} ) => {
     return {
-        listTools: jest.fn().mockResolvedValue( { tools } ),
-        callTool: jest.fn().mockResolvedValue( {
+        listTools: vi.fn().mockResolvedValue( { tools } ),
+        callTool: vi.fn().mockResolvedValue( {
             content: [ { type: 'text', text: '{"data": "mock"}' } ]
         } ),
-        close: jest.fn()
+        close: vi.fn()
     }
 }
 
@@ -105,28 +105,28 @@ describe( 'CompositeToolClient', () => {
 
 
     describe( 'close', () => {
-        test( 'closes all clients', () => {
+        test( 'closes all clients', async () => {
             const clientA = createMockClient()
             const clientB = createMockClient()
 
             const composite = new CompositeToolClient( { clients: [ clientA, clientB ] } )
 
-            composite.close()
+            await composite.close()
 
             expect( clientA.close ).toHaveBeenCalledTimes( 1 )
             expect( clientB.close ).toHaveBeenCalledTimes( 1 )
         } )
 
 
-        test( 'handles clients without close method', () => {
+        test( 'rejects when client has no close method', async () => {
             const clientWithoutClose = {
-                listTools: jest.fn().mockResolvedValue( { tools: [] } ),
-                callTool: jest.fn()
-            }
+                listTools: vi.fn().mockResolvedValue( { tools: [] } ),
+                callTool: vi.fn()
+            } as unknown as Parameters<typeof CompositeToolClient.prototype.constructor>[0]['clients'][0]
 
             const composite = new CompositeToolClient( { clients: [ clientWithoutClose ] } )
 
-            expect( () => composite.close() ).not.toThrow()
+            await expect( composite.close() ).rejects.toThrow( 'client.close is not a function' )
         } )
     } )
 } )

@@ -1,9 +1,11 @@
-import { describe, test, expect, jest } from '@jest/globals'
+import { describe, test, expect, vi } from 'vitest'
 
 
-const mockPrepareServerTool = jest.fn()
+const { mockPrepareServerTool } = vi.hoisted( () => {
+    return { mockPrepareServerTool: vi.fn() }
+} )
 
-jest.unstable_mockModule( 'flowmcp/v1', () => {
+vi.mock( 'flowmcp/v1', () => {
     return {
         FlowMCP: {
             prepareServerTool: mockPrepareServerTool
@@ -11,7 +13,7 @@ jest.unstable_mockModule( 'flowmcp/v1', () => {
     }
 } )
 
-const { ToolRegistry } = await import( '../../src/registry/ToolRegistry.mjs' )
+import { ToolRegistry } from '../../src/registry/ToolRegistry.js'
 
 
 const createToolConfigs = () => {
@@ -102,7 +104,7 @@ describe( 'ToolRegistry', () => {
 
             const { tools } = registry.listTools()
             const defiTool = tools
-                .find( ( t ) => t.name === 'defi-research' )
+                .find( ( t: { name: string } ) => t.name === 'defi-research' )
 
             expect( defiTool.execution ).toEqual( {
                 taskSupport: 'optional',
@@ -117,7 +119,7 @@ describe( 'ToolRegistry', () => {
 
             const { tools } = registry.listTools()
             const priceTool = tools
-                .find( ( t ) => t.name === 'price-check' )
+                .find( ( t: { name: string } ) => t.name === 'price-check' )
 
             expect( priceTool.execution ).toBeUndefined()
         } )
@@ -167,7 +169,7 @@ describe( 'ToolRegistry', () => {
                 toolName: 'mock_tool',
                 description: 'Mock',
                 zod: { type: 'object' },
-                func: jest.fn()
+                func: vi.fn()
             } )
 
             const toolConfigs = createToolConfigs()
@@ -189,7 +191,7 @@ describe( 'ToolRegistry', () => {
                 toolName: 'defilama_tool',
                 description: 'DeFi Llama',
                 zod: { type: 'object' },
-                func: jest.fn()
+                func: vi.fn()
             } )
 
             const toolConfigs = createToolConfigs()
@@ -241,7 +243,7 @@ describe( 'ToolRegistry', () => {
                 toolName: 'mock_tool',
                 description: 'Mock',
                 zod: { type: 'object' },
-                func: jest.fn()
+                func: vi.fn()
             } )
 
             const multiSourceConfig = [

@@ -1,21 +1,22 @@
-import { agentCardHandler, jsonRpcHandler, UserBuilder } from '@a2a-js/sdk/server/express'
+import { jsonRpcHandler, UserBuilder } from '@a2a-js/sdk/server/express'
 import { DefaultRequestHandler, InMemoryTaskStore } from '@a2a-js/sdk/server'
 
-import { AgentCardGenerator } from './AgentCardGenerator.mjs'
+import { AgentCardGenerator } from './AgentCardGenerator.js'
+import type { AgentToolsServer } from '../AgentToolsServer.js'
 
 
 class A2AAdapter {
-    #agentCard
-    #requestHandler
+    #agentCard: any
+    #requestHandler: any
 
 
-    constructor( { agentCard, requestHandler } ) {
+    constructor( { agentCard, requestHandler }: { agentCard: any, requestHandler: any } ) {
         this.#agentCard = agentCard
         this.#requestHandler = requestHandler
     }
 
 
-    static from( { mcp, manifest, serverUrl = '' } ) {
+    static from( { mcp, manifest, serverUrl = '' }: { mcp: AgentToolsServer, manifest: Record<string, any>, serverUrl?: string } ) {
         const { agentCard } = AgentCardGenerator.generate( { manifest, serverUrl } )
 
         const taskStore = new InMemoryTaskStore()
@@ -37,7 +38,7 @@ class A2AAdapter {
     agentCardMiddleware() {
         const card = this.#agentCard
 
-        const handler = ( req, res ) => {
+        const handler = ( _req: any, res: any ) => {
             res.json( card )
         }
 
@@ -64,11 +65,11 @@ class A2AAdapter {
     }
 
 
-    static #createExecutor( { mcp, manifest } ) {
-        const agentName = manifest[ 'name' ]
+    static #createExecutor( { mcp, manifest }: { mcp: AgentToolsServer, manifest: Record<string, any> } ) {
+        const agentName = manifest[ 'name' ] as string
 
         const executor = {
-            async execute( { message, context, eventBus } ) {
+            async execute( { message, context, eventBus }: { message: any, context: any, eventBus: any } ) {
                 const query = A2AAdapter.#extractQuery( { message } )
 
                 try {
@@ -88,7 +89,7 @@ class A2AAdapter {
                     const responseMsg = { role: 'agent', parts: [ { text } ] }
                     eventBus.publish( responseMsg )
                     eventBus.finished()
-                } catch( error ) {
+                } catch( error: any ) {
                     const errorMsg = { role: 'agent', parts: [ { text: `Error: ${error.message}` } ] }
                     eventBus.publish( errorMsg )
                     eventBus.finished()
@@ -100,10 +101,10 @@ class A2AAdapter {
     }
 
 
-    static #extractQuery( { message } ) {
+    static #extractQuery( { message }: { message: any } ) {
         const parts = message[ 'parts' ] || []
         const textPart = parts
-            .find( ( part ) => part[ 'text' ] !== undefined )
+            .find( ( part: any ) => part[ 'text' ] !== undefined )
 
         const query = textPart ? textPart[ 'text' ] : ''
 
@@ -111,15 +112,15 @@ class A2AAdapter {
     }
 
 
-    static #extractText( { result } ) {
+    static #extractText( { result }: { result: any } ) {
         if( !result || !result[ 'content' ] ) {
             return 'No result'
         }
 
         const content = result[ 'content' ]
         const texts = content
-            .filter( ( item ) => item[ 'type' ] === 'text' )
-            .map( ( item ) => item[ 'text' ] )
+            .filter( ( item: any ) => item[ 'type' ] === 'text' )
+            .map( ( item: any ) => item[ 'text' ] )
 
         const text = texts.join( '\n' )
 

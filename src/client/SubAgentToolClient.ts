@@ -1,21 +1,25 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
-
-class SubAgentToolClient {
-    #client
-    #transport
-    #url
-    #name
-    #tools
-    #connected
+import type { ToolClient, Tool, ToolResult } from '../types/index.js'
 
 
-    constructor( { url, name = 'sub-agent' } ) {
+class SubAgentToolClient implements ToolClient {
+    #client: Client | null
+    #transport: StreamableHTTPClientTransport | null
+    #url: string
+    #name: string
+    #tools: Map<string, Tool>
+    #connected: boolean
+
+
+    constructor( { url, name = 'sub-agent' }: { url: string, name?: string } ) {
         this.#url = url
         this.#name = name
         this.#tools = new Map()
         this.#connected = false
+        this.#client = null
+        this.#transport = null
     }
 
 
@@ -34,7 +38,7 @@ class SubAgentToolClient {
 
         const { tools } = await this.#client.listTools()
         tools
-            .forEach( ( tool ) => {
+            .forEach( ( tool: any ) => {
                 const { name, description, inputSchema } = tool
 
                 this.#tools.set( name, { name, description, inputSchema } )
@@ -44,7 +48,7 @@ class SubAgentToolClient {
     }
 
 
-    async listTools() {
+    async listTools(): Promise<{ tools: Tool[] }> {
         if( !this.#connected ) {
             await this.connect()
         }
@@ -55,7 +59,7 @@ class SubAgentToolClient {
     }
 
 
-    async callTool( { name, arguments: args } ) {
+    async callTool( { name, arguments: args }: { name: string, arguments: Record<string, unknown> } ): Promise<ToolResult> {
         if( !this.#connected ) {
             await this.connect()
         }
@@ -70,10 +74,10 @@ class SubAgentToolClient {
         }
 
         try {
-            const result = await this.#client.callTool( { name, arguments: args } )
+            const result = await this.#client!.callTool( { name, arguments: args } )
 
-            return result
-        } catch( error ) {
+            return result as ToolResult
+        } catch( error: any ) {
             return {
                 content: [ { type: 'text', text: `Error calling sub-agent "${this.#name}" tool "${name}": ${error.message}` } ],
                 isError: true
@@ -82,10 +86,10 @@ class SubAgentToolClient {
     }
 
 
-    close() {
+    async close(): Promise<void> {
         if( this.#client ) {
             try {
-                this.#client.close()
+                await this.#client.close()
             } catch {
                 // Ignore close errors
             }

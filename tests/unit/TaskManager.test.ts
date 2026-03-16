@@ -1,14 +1,19 @@
-import { describe, test, expect, jest } from '@jest/globals'
+import { describe, test, expect, vi } from 'vitest'
 
 
-const mockCreateTask = jest.fn()
-const mockGetTask = jest.fn()
-const mockGetTaskResult = jest.fn()
-const mockStoreTaskResult = jest.fn()
+const mockCreateTask = vi.fn()
+const mockGetTask = vi.fn()
+const mockGetTaskResult = vi.fn()
+const mockStoreTaskResult = vi.fn()
 
-jest.unstable_mockModule( '@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js', () => {
+vi.mock( '@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js', () => {
     return {
         InMemoryTaskStore: class MockTaskStore {
+            createTask: ReturnType<typeof vi.fn>
+            getTask: ReturnType<typeof vi.fn>
+            getTaskResult: ReturnType<typeof vi.fn>
+            storeTaskResult: ReturnType<typeof vi.fn>
+
             constructor() {
                 this.createTask = mockCreateTask
                 this.getTask = mockGetTask
@@ -19,13 +24,13 @@ jest.unstable_mockModule( '@modelcontextprotocol/sdk/experimental/tasks/stores/i
     }
 } )
 
-jest.unstable_mockModule( '@modelcontextprotocol/sdk/experimental/tasks/interfaces.js', () => {
+vi.mock( '@modelcontextprotocol/sdk/experimental/tasks/interfaces.js', () => {
     return {
-        isTerminal: jest.fn( ( status ) => status === 'completed' || status === 'failed' || status === 'cancelled' )
+        isTerminal: vi.fn( ( status: string ) => status === 'completed' || status === 'failed' || status === 'cancelled' )
     }
 } )
 
-const { TaskManager } = await import( '../../src/task/TaskManager.mjs' )
+import { TaskManager } from '../../src/task/TaskManager.js'
 
 
 describe( 'TaskManager', () => {
@@ -39,7 +44,7 @@ describe( 'TaskManager', () => {
 
 
         test( 'uses custom store when provided', () => {
-            const customStore = { createTask: jest.fn(), getTask: jest.fn() }
+            const customStore = { createTask: vi.fn(), getTask: vi.fn() }
             const manager = new TaskManager( { taskStore: customStore } )
 
             expect( manager.taskStore ).toBe( customStore )

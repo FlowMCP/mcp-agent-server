@@ -1,13 +1,16 @@
-class CompositeToolClient {
-    #clients
+import type { ToolClient, Tool, ToolResult } from '../types/index.js'
 
 
-    constructor( { clients } ) {
+class CompositeToolClient implements ToolClient {
+    #clients: ToolClient[]
+
+
+    constructor( { clients }: { clients: ToolClient[] } ) {
         this.#clients = clients
     }
 
 
-    async listTools() {
+    async listTools(): Promise<{ tools: Tool[] }> {
         const toolArrays = await Promise.all(
             this.#clients
                 .map( async ( client ) => {
@@ -23,7 +26,7 @@ class CompositeToolClient {
     }
 
 
-    async callTool( { name, arguments: args } ) {
+    async callTool( { name, arguments: args }: { name: string, arguments: Record<string, unknown> } ): Promise<ToolResult> {
         const entries = await Promise.all(
             this.#clients
                 .map( async ( client ) => {
@@ -51,13 +54,13 @@ class CompositeToolClient {
     }
 
 
-    close() {
-        this.#clients
-            .forEach( ( client ) => {
-                if( typeof client.close === 'function' ) {
-                    client.close()
-                }
-            } )
+    async close(): Promise<void> {
+        await Promise.all(
+            this.#clients
+                .map( async ( client ) => {
+                    await client.close()
+                } )
+        )
     }
 }
 
