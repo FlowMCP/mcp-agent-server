@@ -1,13 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 
 import { Logger } from '../logging/Logger.js'
+import { AnthropicProvider } from '../providers/AnthropicProvider.js'
 import { MASError, MAS_ERROR_CODES } from '../errors/MASError.js'
-import type { ToolClient, StatusUpdate, JSONSchema, RoundLog, RoundLogCallback } from '../types/index.js'
+import type { ToolClient, StatusUpdate, JSONSchema, RoundLog, RoundLogCallback, LLMProvider } from '../types/index.js'
 
 
 class AgentLoop {
-    static async start( { query, toolClient, systemPrompt, model, maxRounds, maxTokens, onStatus, onRoundLog, baseURL, apiKey, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds: number, maxTokens: number, onStatus?: ( params: StatusUpdate ) => void, onRoundLog?: RoundLogCallback, baseURL?: string, apiKey?: string, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
+    static async start( { query, toolClient, systemPrompt, model, maxRounds, maxTokens, onStatus, onRoundLog, baseURL, apiKey, llmProvider, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds: number, maxTokens: number, onStatus?: ( params: StatusUpdate ) => void, onRoundLog?: RoundLogCallback, baseURL?: string, apiKey?: string, llmProvider?: LLMProvider, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
         if( !query ) {
             throw new MASError( { code: MAS_ERROR_CODES.AGENT_LOOP_ERROR, message: 'query is required' } )
         }
@@ -66,11 +66,7 @@ class AgentLoop {
             { role: 'user', content: query }
         ]
 
-        const clientConfig: Record<string, string> = {}
-        if( baseURL ) { clientConfig.baseURL = baseURL }
-        if( apiKey ) { clientConfig.apiKey = apiKey }
-
-        const anthropic = new Anthropic( clientConfig )
+        const provider = llmProvider || AnthropicProvider.create( { baseURL: baseURL || '', apiKey: apiKey || '' } ).provider
         let round = 0
         let running = true
         let hasRequestedSubmit = false
@@ -104,32 +100,30 @@ class AgentLoop {
                 toolResults: []
             }
 
-            const response = await anthropic.messages.create( {
+            const llmResponse = await provider.complete( {
                 model,
-                max_tokens: maxTokens,
+                maxTokens,
                 system: enrichedSystemPrompt,
-                tools: allTools as any,
+                tools: allTools,
                 messages
             } )
 
-            totalInputTokens += response.usage.input_tokens
-            totalOutputTokens += response.usage.output_tokens
+            totalInputTokens += llmResponse.inputTokens
+            totalOutputTokens += llmResponse.outputTokens
 
-            roundLog.llmOutput.inputTokens = response.usage.input_tokens
-            roundLog.llmOutput.outputTokens = response.usage.output_tokens
+            roundLog.llmOutput.inputTokens = llmResponse.inputTokens
+            roundLog.llmOutput.outputTokens = llmResponse.outputTokens
+            roundLog.llmOutput.textBlocks = llmResponse.textBlocks
+            roundLog.llmOutput.toolCalls = llmResponse.toolCalls
+                .map( ( tc ) => ( { name: tc.name, arguments: tc.input } ) )
 
-            const { content } = response
+            const content = [
+                ...llmResponse.textBlocks.map( ( text ) => ( { type: 'text' as const, text } ) ),
+                ...llmResponse.toolCalls.map( ( tc ) => ( { type: 'tool_use' as const, id: tc.id, name: tc.name, input: tc.input } ) )
+            ]
 
-            roundLog.llmOutput.textBlocks = content
-                .filter( ( block: any ) => block.type === 'text' )
-                .map( ( block: any ) => block.text )
-
-            roundLog.llmOutput.toolCalls = content
-                .filter( ( block: any ) => block.type === 'tool_use' )
-                .map( ( block: any ) => ( { name: block.name, arguments: block.input } ) )
-
-            const submitBlock = content
-                .find( ( block: any ) => block.type === 'tool_use' && block.name === answerToolName )
+            const submitBlock = llmResponse.toolCalls
+                .find( ( tc ) => tc.name === answerToolName )
 
             if( submitBlock ) {
                 const duration = Date.now() - startTime

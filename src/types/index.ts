@@ -4,6 +4,27 @@ export type JSONSchema = Record<string, unknown>
 export interface LLMConfig {
     baseURL: string
     apiKey: string
+    sdk?: 'anthropic' | 'openai'
+}
+
+
+export interface LLMResponse {
+    textBlocks: string[]
+    toolCalls: Array<{ id: string, name: string, input: unknown }>
+    inputTokens: number
+    outputTokens: number
+    stopReason: string
+}
+
+
+export interface LLMProvider {
+    complete( params: {
+        model: string
+        maxTokens: number
+        system: string
+        tools: any[]
+        messages: any[]
+    } ): Promise<LLMResponse>
 }
 
 

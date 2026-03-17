@@ -10,6 +10,7 @@ export { MASError, MAS_ERROR_CODES } from './errors/MASError.js'
 export { Logger } from './logging/Logger.js'
 export { DebugWriter } from './logging/DebugWriter.js'
 export { PostMessageBridge } from './ui/PostMessageBridge.js'
+export { AnthropicProvider } from './providers/AnthropicProvider.js'
 
 export type {
     LLMConfig,
@@ -29,5 +30,7 @@ export type {
     ServerConfig,
     JSONSchema,
     RoundLog,
-    RoundLogCallback
+    RoundLogCallback,
+    LLMProvider,
+    LLMResponse
 } from './types/index.js'
