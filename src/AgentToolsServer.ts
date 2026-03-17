@@ -9,6 +9,7 @@ import { TaskManager } from './task/TaskManager.js'
 import { AgentLoop } from './agent/AgentLoop.js'
 import { MASError, MAS_ERROR_CODES } from './errors/MASError.js'
 import { Logger } from './logging/Logger.js'
+import { DebugWriter } from './logging/DebugWriter.js'
 import type { LLMConfig, ServerConfig } from './types/index.js'
 
 
@@ -333,6 +334,14 @@ class AgentToolsServer extends EventEmitter {
             }
         }
 
+        const debugLevel = ( process.env[ 'DEBUG_LEVEL' ] || '' ) as 'info' | 'debug' | 'trace' | ''
+        let debugWriter: DebugWriter | null = null
+
+        if( debugLevel ) {
+            const { writer } = DebugWriter.create( { agentName: toolName, level: debugLevel as any } )
+            debugWriter = writer
+        }
+
         if( emitter ) {
             emitter.emit( 'agent:start', { taskId, query, model, agentName: toolName, timestamp: Date.now() } )
         }
@@ -355,9 +364,14 @@ class AgentToolsServer extends EventEmitter {
                         if( emitter ) {
                             emitter.emit( 'agent:status', { taskId, agentName: toolName, status, round, message, timestamp: Date.now() } )
                         }
-                    }
+                    },
+                    onRoundLog: debugWriter ? ( log ) => debugWriter!.onRoundLog( log ) : undefined
                 } )
             const { result } = loopResult!
+
+            if( debugWriter ) {
+                await debugWriter.flush()
+            }
 
             if( emitter ) {
                 emitter.emit( 'agent:complete', { taskId, agentName: toolName, result, timestamp: Date.now() } )
@@ -408,6 +422,14 @@ class AgentToolsServer extends EventEmitter {
             return
         }
 
+        const asyncDebugLevel = ( process.env[ 'DEBUG_LEVEL' ] || '' ) as 'info' | 'debug' | 'trace' | ''
+        let asyncDebugWriter: DebugWriter | null = null
+
+        if( asyncDebugLevel ) {
+            const { writer } = DebugWriter.create( { agentName: toolName, level: asyncDebugLevel as any } )
+            asyncDebugWriter = writer
+        }
+
         if( emitter ) {
             emitter.emit( 'agent:start', { taskId, query, model, agentName: toolName, timestamp: Date.now() } )
         }
@@ -430,9 +452,14 @@ class AgentToolsServer extends EventEmitter {
                         if( emitter ) {
                             emitter.emit( 'agent:status', { taskId, agentName: toolName, status, round, message, timestamp: Date.now() } )
                         }
-                    }
+                    },
+                    onRoundLog: asyncDebugWriter ? ( log ) => asyncDebugWriter!.onRoundLog( log ) : undefined
                 } )
             const { result } = asyncResult!
+
+            if( asyncDebugWriter ) {
+                await asyncDebugWriter.flush()
+            }
 
             if( emitter ) {
                 emitter.emit( 'agent:complete', { taskId, agentName: toolName, result, timestamp: Date.now() } )

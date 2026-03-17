@@ -76,6 +76,39 @@ export interface MASErrorConfig {
 }
 
 
+export interface RoundLog {
+    round: number
+    timestamp: string
+    llmInput: {
+        messageCount: number
+        systemPromptLength: number
+        toolCount: number
+    }
+    llmOutput: {
+        textBlocks: string[]
+        toolCalls: Array<{
+            name: string
+            arguments: unknown
+        }>
+        inputTokens: number
+        outputTokens: number
+    }
+    toolResults: Array<{
+        name: string
+        arguments: unknown
+        duration: number
+        success: boolean
+        dataSize: number
+        dataSample: string
+        fullData: unknown
+        error?: string
+    }>
+}
+
+
+export type RoundLogCallback = ( log: RoundLog ) => void
+
+
 export interface AgentLoopParams {
     query: string
     toolClient: ToolClient
@@ -84,6 +117,7 @@ export interface AgentLoopParams {
     maxRounds: number
     maxTokens: number
     onStatus?: ( params: StatusUpdate ) => void
+    onRoundLog?: RoundLogCallback
     baseURL: string
     apiKey: string
     answerSchema?: JSONSchema | null

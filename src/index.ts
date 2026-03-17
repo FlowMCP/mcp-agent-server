@@ -8,6 +8,7 @@ export { TaskSession, Resolver } from './task/TaskSession.js'
 export { TaskMessageQueue } from './task/TaskMessageQueue.js'
 export { MASError, MAS_ERROR_CODES } from './errors/MASError.js'
 export { Logger } from './logging/Logger.js'
+export { DebugWriter } from './logging/DebugWriter.js'
 export { PostMessageBridge } from './ui/PostMessageBridge.js'
 
 export type {
@@ -26,5 +27,7 @@ export type {
     StatusUpdate,
     TaskConfig,
     ServerConfig,
-    JSONSchema
+    JSONSchema,
+    RoundLog,
+    RoundLogCallback
 } from './types/index.js'

@@ -3,11 +3,11 @@ import { zodToJsonSchema } from 'zod-to-json-schema'
 
 import { Logger } from '../logging/Logger.js'
 import { MASError, MAS_ERROR_CODES } from '../errors/MASError.js'
-import type { ToolClient, StatusUpdate, JSONSchema } from '../types/index.js'
+import type { ToolClient, StatusUpdate, JSONSchema, RoundLog, RoundLogCallback } from '../types/index.js'
 
 
 class AgentLoop {
-    static async start( { query, toolClient, systemPrompt, model, maxRounds, maxTokens, onStatus, baseURL, apiKey, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds: number, maxTokens: number, onStatus?: ( params: StatusUpdate ) => void, baseURL?: string, apiKey?: string, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
+    static async start( { query, toolClient, systemPrompt, model, maxRounds, maxTokens, onStatus, onRoundLog, baseURL, apiKey, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds: number, maxTokens: number, onStatus?: ( params: StatusUpdate ) => void, onRoundLog?: RoundLogCallback, baseURL?: string, apiKey?: string, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
         if( !query ) {
             throw new MASError( { code: MAS_ERROR_CODES.AGENT_LOOP_ERROR, message: 'query is required' } )
         }
@@ -83,6 +83,23 @@ class AgentLoop {
                 } )
             }
 
+            const roundLog: RoundLog = {
+                round,
+                timestamp: new Date().toISOString(),
+                llmInput: {
+                    messageCount: messages.length,
+                    systemPromptLength: systemPrompt.length,
+                    toolCount: allTools.length
+                },
+                llmOutput: {
+                    textBlocks: [],
+                    toolCalls: [],
+                    inputTokens: 0,
+                    outputTokens: 0
+                },
+                toolResults: []
+            }
+
             const response = await anthropic.messages.create( {
                 model,
                 max_tokens: maxTokens,
@@ -94,7 +111,18 @@ class AgentLoop {
             totalInputTokens += response.usage.input_tokens
             totalOutputTokens += response.usage.output_tokens
 
+            roundLog.llmOutput.inputTokens = response.usage.input_tokens
+            roundLog.llmOutput.outputTokens = response.usage.output_tokens
+
             const { content } = response
+
+            roundLog.llmOutput.textBlocks = content
+                .filter( ( block: any ) => block.type === 'text' )
+                .map( ( block: any ) => block.text )
+
+            roundLog.llmOutput.toolCalls = content
+                .filter( ( block: any ) => block.type === 'tool_use' )
+                .map( ( block: any ) => ( { name: block.name, arguments: block.input } ) )
 
             const submitBlock = content
                 .find( ( block: any ) => block.type === 'tool_use' && block.name === answerToolName )
@@ -200,6 +228,16 @@ class AgentLoop {
                             resultText = resultText.slice( 0, maxResultLength ) + '\n\n[... truncated, total ' + resultText.length + ' chars]'
                         }
 
+                        roundLog.toolResults.push( {
+                            name,
+                            arguments: input,
+                            duration: callDuration,
+                            success: true,
+                            dataSize: fullResultText.length,
+                            dataSample: fullResultText.slice( 0, 500 ),
+                            fullData: callResult
+                        } )
+
                         return {
                             type: 'tool_result',
                             tool_use_id: id,
@@ -209,6 +247,17 @@ class AgentLoop {
                         const callDuration = Date.now() - callStart
 
                         toolCallLog.push( { name, input, duration: callDuration, success: false, error: error.message } )
+
+                        roundLog.toolResults.push( {
+                            name,
+                            arguments: input,
+                            duration: callDuration,
+                            success: false,
+                            dataSize: 0,
+                            dataSample: '',
+                            fullData: null,
+                            error: error.message
+                        } )
 
                         return {
                             type: 'tool_result',
@@ -220,6 +269,12 @@ class AgentLoop {
                 } )
 
             const resolvedResults = await Promise.all( toolResultPromises )
+
+            if( onRoundLog ) {
+                onRoundLog( roundLog )
+            }
+
+            Logger.info( 'AgentLoop', `Round ${round}: ${roundLog.llmOutput.toolCalls.length} tool-calls, ${roundLog.toolResults.length} results, ${roundLog.llmOutput.inputTokens}+${roundLog.llmOutput.outputTokens} tokens` )
 
             messages.push( { role: 'user', content: resolvedResults } )
         } while( running )
