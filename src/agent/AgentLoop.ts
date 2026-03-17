@@ -58,6 +58,10 @@ class AgentLoop {
 
         const allTools = [ ...anthropicTools, ...builtinTools ]
 
+        const now = new Date()
+        const datePrefix = `[Aktuelles Datum: ${now.toISOString().split( 'T' )[ 0 ]}, Uhrzeit: ${now.toTimeString().slice( 0, 5 )} CET]`
+        const enrichedSystemPrompt = `${datePrefix}\n\n${systemPrompt}`
+
         const messages: any[] = [
             { role: 'user', content: query }
         ]
@@ -103,7 +107,7 @@ class AgentLoop {
             const response = await anthropic.messages.create( {
                 model,
                 max_tokens: maxTokens,
-                system: systemPrompt,
+                system: enrichedSystemPrompt,
                 tools: allTools as any,
                 messages
             } )
