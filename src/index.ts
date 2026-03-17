@@ -7,6 +7,8 @@ export { SubAgentToolClient } from './client/SubAgentToolClient.js'
 export { TaskSession, Resolver } from './task/TaskSession.js'
 export { TaskMessageQueue } from './task/TaskMessageQueue.js'
 export { MASError, MAS_ERROR_CODES } from './errors/MASError.js'
+export { Logger } from './logging/Logger.js'
+export { PostMessageBridge } from './ui/PostMessageBridge.js'
 
 export type {
     LLMConfig,

@@ -1,6 +1,7 @@
 import { InProcessToolClient } from '../client/InProcessToolClient.js'
 import { CompositeToolClient } from '../client/CompositeToolClient.js'
 import { SubAgentToolClient } from '../client/SubAgentToolClient.js'
+import { Logger } from '../logging/Logger.js'
 import type { ToolClient } from '../types/index.js'
 
 
@@ -155,7 +156,7 @@ class ToolRegistry {
             return toolClient
         }
 
-        console.warn( `[ToolRegistry] Unknown tool source type: "${type}" — skipping` )
+        Logger.warn( 'ToolRegistry', `Unknown tool source type: "${type}" — skipping` )
 
         return null
     }

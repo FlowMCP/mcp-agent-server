@@ -8,6 +8,7 @@ import { ToolRegistry } from './registry/ToolRegistry.js'
 import { TaskManager } from './task/TaskManager.js'
 import { AgentLoop } from './agent/AgentLoop.js'
 import { MASError, MAS_ERROR_CODES } from './errors/MASError.js'
+import { Logger } from './logging/Logger.js'
 import type { LLMConfig, ServerConfig } from './types/index.js'
 
 
@@ -349,7 +350,7 @@ class AgentToolsServer extends EventEmitter {
                     apiKey,
                     answerSchema: agent.answerSchema || null,
                     onStatus: ( { status, round, message }: { status: string, round: number, message: string } ) => {
-                        console.log( `[AgentServer] sync | ${toolName} | ${status} | Round ${round} | ${message}` )
+                        Logger.info( 'AgentServer', `sync | ${toolName} | ${status} | Round ${round} | ${message}` )
 
                         if( emitter ) {
                             emitter.emit( 'agent:status', { taskId, agentName: toolName, status, round, message, timestamp: Date.now() } )
@@ -372,7 +373,7 @@ class AgentToolsServer extends EventEmitter {
                 structuredContent: result
             }
         } catch( error: any ) {
-            console.error( `[AgentServer] sync | ${toolName} | failed | ${error.message}` )
+            Logger.error( 'AgentServer', `sync | ${toolName} | failed | ${error.message}` )
 
             if( emitter ) {
                 emitter.emit( 'agent:error', { taskId, agentName: toolName, error: error.message, timestamp: Date.now() } )
@@ -424,7 +425,7 @@ class AgentToolsServer extends EventEmitter {
                     apiKey,
                     answerSchema: agent.answerSchema || null,
                     onStatus: ( { status, round, message }: { status: string, round: number, message: string } ) => {
-                        console.log( `[AgentServer] Task ${taskId} | ${toolName} | ${status} | Round ${round} | ${message}` )
+                        Logger.info( 'AgentServer', `Task ${taskId} | ${toolName} | ${status} | Round ${round} | ${message}` )
 
                         if( emitter ) {
                             emitter.emit( 'agent:status', { taskId, agentName: toolName, status, round, message, timestamp: Date.now() } )
@@ -450,7 +451,7 @@ class AgentToolsServer extends EventEmitter {
                 }
             } )
         } catch( error: any ) {
-            console.error( `[AgentServer] Task ${taskId} | ${toolName} | failed | ${error.message}` )
+            Logger.error( 'AgentServer', `Task ${taskId} | ${toolName} | failed | ${error.message}` )
 
             if( emitter ) {
                 emitter.emit( 'agent:error', { taskId, agentName: toolName, error: error.message, timestamp: Date.now() } )
