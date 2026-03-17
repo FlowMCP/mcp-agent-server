@@ -33,7 +33,7 @@ const jsonrpc = ( id, method, params = {} ) => ( {
 
 
 const post = async ( { body, sessionId } ) => {
-    const headers = { 'Content-Type': 'application/json' }
+    const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' }
 
     if( sessionId ) {
         headers[ 'mcp-session-id' ] = sessionId
@@ -46,7 +46,21 @@ const post = async ( { body, sessionId } ) => {
         body: JSON.stringify( body )
     } )
     const elapsed = Date.now() - start
-    const data = await response.json()
+    const raw = await response.text()
+
+    // Server responds as SSE (text/event-stream) — extract JSON from "data: {...}" lines
+    let data
+    const contentType = response.headers.get( 'content-type' ) || ''
+
+    if( contentType.includes( 'text/event-stream' ) ) {
+        const dataLines = raw.split( '\n' )
+            .filter( ( line ) => line.startsWith( 'data: ' ) )
+            .map( ( line ) => line.slice( 6 ) )
+
+        data = dataLines.length > 0 ? JSON.parse( dataLines[ dataLines.length - 1 ] ) : {}
+    } else {
+        data = JSON.parse( raw )
+    }
 
     return { data, elapsed, headers: Object.fromEntries( response.headers ) }
 }

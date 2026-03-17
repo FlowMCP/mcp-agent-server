@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { zodToJsonSchema } from 'zod-to-json-schema'
 
+import { Logger } from '../logging/Logger.js'
 import { MASError, MAS_ERROR_CODES } from '../errors/MASError.js'
 import type { ToolClient, StatusUpdate, JSONSchema } from '../types/index.js'
 
@@ -28,11 +30,21 @@ class AgentLoop {
 
         const { tools: clientTools } = await toolClient.listTools()
 
+        Logger.info( 'AgentLoop', `Tools available: ${clientTools.length}`, clientTools.map( ( t: any ) => t.name ) )
+
         const anthropicTools = clientTools
             .map( ( tool: any ) => {
                 const { name, description, inputSchema } = tool
 
-                return { name, description, input_schema: inputSchema }
+                let jsonSchema = inputSchema
+
+                if( inputSchema && inputSchema._def ) {
+                    jsonSchema = zodToJsonSchema( inputSchema, { target: 'openApi3' } )
+                } else if( inputSchema && !inputSchema.type ) {
+                    jsonSchema = { type: 'object', properties: inputSchema }
+                }
+
+                return { name, description, input_schema: jsonSchema }
             } )
 
         const answerToolName = 'submit_answer'

@@ -140,7 +140,17 @@ class ToolRegistry {
         const { type } = source
 
         if( type === 'flowmcp' ) {
-            const { schemaPaths, serverParams } = source
+            const { schemaPaths, schemas, serverParams } = source
+
+            if( schemas && schemas.length > 0 ) {
+                const toolClient = await InProcessToolClient.fromSchemas( {
+                    schemas,
+                    serverParams: serverParams || {}
+                } )
+
+                return toolClient
+            }
+
             const toolClient = await InProcessToolClient.create( {
                 schemaPaths: schemaPaths || [],
                 serverParams: serverParams || {}

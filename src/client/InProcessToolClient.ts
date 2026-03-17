@@ -1,5 +1,6 @@
 import { FlowMCP } from 'flowmcp'
 
+import { Logger } from '../logging/Logger.js'
 import { MASError, MAS_ERROR_CODES } from '../errors/MASError.js'
 import type { ToolClient, Tool, ToolResult } from '../types/index.js'
 
@@ -16,6 +17,14 @@ class InProcessToolClient implements ToolClient {
     static async create( { schemaPaths, serverParams = {} }: { schemaPaths: string[], serverParams?: Record<string, string> } ): Promise<InProcessToolClient> {
         const client = new InProcessToolClient()
         await client.#loadSchemas( { schemaPaths, serverParams } )
+
+        return client
+    }
+
+
+    static async fromSchemas( { schemas, serverParams = {} }: { schemas: any[], serverParams?: Record<string, string> } ): Promise<InProcessToolClient> {
+        const client = new InProcessToolClient()
+        await client.#loadPreloadedSchemas( { schemas, serverParams } )
 
         return client
     }
@@ -45,6 +54,36 @@ class InProcessToolClient implements ToolClient {
     }
 
 
+    async #loadPreloadedSchemas( { schemas, serverParams }: { schemas: any[], serverParams: Record<string, string> } ) {
+        for( const schema of schemas ) {
+            const main = schema
+            const rawHandlers = schema.handlers || {}
+            const handlerMap = typeof rawHandlers === 'function' ? rawHandlers( { sharedLists: {}, libraries: {} } ) : rawHandlers
+
+            if( !main.version || !main.version.startsWith( '3.' ) ) {
+                throw new MASError( {
+                    code: MAS_ERROR_CODES.SCHEMA_VERSION,
+                    message: `Schema "${main.namespace}" is not v3. Found version: ${main.version || 'undefined'}`,
+                    details: { namespace: main.namespace, version: main.version }
+                } )
+            }
+
+            const toolNames = Object.keys( main[ 'tools' ] || {} )
+
+            for( const routeName of toolNames ) {
+                try {
+                    const { toolName, description, zod, func } = FlowMCP
+                        .prepareServerTool( { main, handlerMap, serverParams, routeName } )
+
+                    this.#tools.set( toolName, { name: toolName, description, inputSchema: zod, func } )
+                } catch( err: any ) {
+                    Logger.warn( 'InProcessToolClient', `Skipping tool "${main.namespace}/${routeName}": ${err.message}` )
+                }
+            }
+        }
+    }
+
+
     async listTools(): Promise<{ tools: Tool[] }> {
         const tools = [ ...this.#tools.values() ]
             .map( ( { name, description, inputSchema } ) => {
@@ -65,9 +104,27 @@ class InProcessToolClient implements ToolClient {
             }
         }
 
-        const result = await tool.func( args )
+        const raw = await tool.func( args )
 
-        return result
+        if( raw && raw.content && Array.isArray( raw.content ) ) {
+            return raw
+        }
+
+        if( raw && raw.status !== undefined ) {
+            const text = raw.data
+                ? JSON.stringify( raw.data )
+                : raw.dataAsString || JSON.stringify( raw )
+
+            return {
+                content: [ { type: 'text', text } ],
+                isError: !raw.status
+            }
+        }
+
+        return {
+            content: [ { type: 'text', text: JSON.stringify( raw ) } ],
+            isError: false
+        }
     }
 
 

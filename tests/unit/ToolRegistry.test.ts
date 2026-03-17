@@ -263,8 +263,8 @@ describe( 'ToolRegistry', () => {
                     inputSchema: { type: 'object', properties: {} },
                     agent: { systemPrompt: 'Test', model: 'test', maxRounds: 1, maxTokens: 1024 },
                     toolSources: [
-                        { type: 'flowmcp', schemas: [ { name: 'api-a', routes: { getA: {} } } ] },
-                        { type: 'flowmcp', schemas: [ { name: 'api-b', routes: { getB: {} } } ] }
+                        { type: 'flowmcp', schemas: [ { version: '3.0.0', namespace: 'api-a', tools: { getA: {} } } ] },
+                        { type: 'flowmcp', schemas: [ { version: '3.0.0', namespace: 'api-b', tools: { getB: {} } } ] }
                     ]
                 }
             ]
