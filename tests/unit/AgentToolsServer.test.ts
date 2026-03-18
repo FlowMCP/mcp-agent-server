@@ -43,7 +43,10 @@ vi.mock( '@modelcontextprotocol/sdk/types.js', () => {
         ListToolsRequestSchema: 'ListToolsRequestSchema',
         CallToolRequestSchema: 'CallToolRequestSchema',
         GetTaskRequestSchema: 'GetTaskRequestSchema',
-        GetTaskPayloadRequestSchema: 'GetTaskPayloadRequestSchema'
+        GetTaskPayloadRequestSchema: 'GetTaskPayloadRequestSchema',
+        ListResourcesRequestSchema: 'ListResourcesRequestSchema',
+        ListPromptsRequestSchema: 'ListPromptsRequestSchema',
+        ReadResourceRequestSchema: 'ReadResourceRequestSchema'
     }
 } )
 
@@ -256,11 +259,11 @@ describe( 'AgentToolsServer', () => {
 
             expect( next ).not.toHaveBeenCalled()
             expect( mockServerConnect ).toHaveBeenCalledTimes( 1 )
-            expect( mockSetRequestHandler ).toHaveBeenCalledTimes( 4 )
+            expect( mockSetRequestHandler ).toHaveBeenCalledTimes( 7 )
         } )
 
 
-        test( 'registers four request handlers on MCP Server', async () => {
+        test( 'registers seven request handlers on MCP Server', async () => {
             const { mcp } = await AgentToolsServer.create( testConfig )
             const mcpMiddleware = mcp.middleware()
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { ListToolsRequestSchema, CallToolRequestSchema, GetTaskRequestSchema, GetTaskPayloadRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { ListToolsRequestSchema, CallToolRequestSchema, GetTaskRequestSchema, GetTaskPayloadRequestSchema, ListResourcesRequestSchema, ListPromptsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 
 import { ToolRegistry } from './registry/ToolRegistry.js'
 import { TaskManager } from './task/TaskManager.js'
@@ -242,6 +242,8 @@ class AgentToolsServer extends EventEmitter {
 
         const capabilities: Record<string, any> = {
             tools: {},
+            resources: {},
+            prompts: {},
             tasks: {
                 requests: {
                     tools: { call: {} }
@@ -253,15 +255,61 @@ class AgentToolsServer extends EventEmitter {
             capabilities.elicitation = {}
         }
 
+        capabilities[ 'io.modelcontextprotocol/ui' ] = {}
+
         const server = new Server(
             { name, version },
             { capabilities }
         )
 
+        const uiResourceUri = `ui://${name}/status`
+
+        server.setRequestHandler( ListResourcesRequestSchema, async () => {
+            return {
+                resources: [
+                    {
+                        uri: uiResourceUri,
+                        name: `${name} Status UI`,
+                        description: `Real-time status display for ${name} agent`,
+                        mimeType: 'text/html;profile=mcp-app'
+                    }
+                ]
+            }
+        } )
+
+        server.setRequestHandler( ReadResourceRequestSchema, async ( request: any ) => {
+            const { uri } = request.params
+
+            if( uri === uiResourceUri ) {
+                return {
+                    contents: [ {
+                        uri: uiResourceUri,
+                        mimeType: 'text/html;profile=mcp-app',
+                        text: `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'"><meta name="color-scheme" content="light dark"><meta name="display-mode" content="embedded"><style>:root{--bg:#fff;--fg:#000;--accent:#2563eb}@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--fg:#e2e8f0;--accent:#60a5fa}}body{font-family:system-ui;margin:0;padding:16px;background:var(--bg);color:var(--fg)}</style></head><body data-theme="auto"><h1>${name}</h1><p>Agent Status</p><noscript>This UI requires JavaScript to display real-time agent status.</noscript></body></html>`
+                    } ]
+                }
+            }
+
+            return { contents: [] }
+        } )
+
+        server.setRequestHandler( ListPromptsRequestSchema, async () => {
+            return { prompts: [] }
+        } )
+
         server.setRequestHandler( ListToolsRequestSchema, async () => {
             const { tools } = toolRegistry.listTools()
 
-            return { tools }
+            const toolsWithUi = tools
+                .map( ( tool: any ) => ( {
+                    ...tool,
+                    _meta: {
+                        ...( tool._meta || {} ),
+                        ui: { resourceUri: uiResourceUri }
+                    }
+                } ) )
+
+            return { tools: toolsWithUi }
         } )
 
         server.setRequestHandler( CallToolRequestSchema, async ( request: any, extra: any ) => {
