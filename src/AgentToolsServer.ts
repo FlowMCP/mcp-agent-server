@@ -264,6 +264,15 @@ class AgentToolsServer extends EventEmitter {
 
         const uiResourceUri = `ui://${name}/status`
 
+        const uiMeta = {
+            csp: {
+                connectDomains: [],
+                resourceDomains: [],
+                frameDomains: []
+            },
+            displayModes: [ 'inline' ]
+        }
+
         server.setRequestHandler( ListResourcesRequestSchema, async () => {
             return {
                 resources: [
@@ -271,7 +280,8 @@ class AgentToolsServer extends EventEmitter {
                         uri: uiResourceUri,
                         name: `${name} Status UI`,
                         description: `Real-time status display for ${name} agent`,
-                        mimeType: 'text/html;profile=mcp-app'
+                        mimeType: 'text/html;profile=mcp-app',
+                        _meta: { ui: uiMeta }
                     }
                 ]
             }
@@ -285,7 +295,10 @@ class AgentToolsServer extends EventEmitter {
                     contents: [ {
                         uri: uiResourceUri,
                         mimeType: 'text/html;profile=mcp-app',
-                        text: `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'"><meta name="color-scheme" content="light dark"><meta name="display-mode" content="embedded"><style>:root{--bg:#fff;--fg:#000;--accent:#2563eb}@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--fg:#e2e8f0;--accent:#60a5fa}}body{font-family:system-ui;margin:0;padding:16px;background:var(--bg);color:var(--fg)}</style></head><body data-theme="auto"><h1>${name}</h1><p>Agent Status</p><noscript>This UI requires JavaScript to display real-time agent status.</noscript></body></html>`
+                        text: `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><style>:root{--bg:#fff;--fg:#000;--accent:#2563eb}@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--fg:#e2e8f0;--accent:#60a5fa}}body{font-family:system-ui;margin:0;padding:16px;background:var(--bg);color:var(--fg)}</style></head><body data-theme="auto"><h1>${name}</h1><p>Agent Status</p><noscript>This UI requires JavaScript to display real-time agent status.</noscript></body></html>`,
+                        _meta: {
+                            ui: uiMeta
+                        }
                     } ]
                 }
             }
@@ -305,7 +318,7 @@ class AgentToolsServer extends EventEmitter {
                     ...tool,
                     _meta: {
                         ...( tool._meta || {} ),
-                        ui: { resourceUri: uiResourceUri }
+                        ui: { resourceUri: uiResourceUri, ...uiMeta }
                     }
                 } ) )
 
