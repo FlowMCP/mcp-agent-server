@@ -151,6 +151,32 @@ class AgentLoop {
                 .some( ( block: any ) => block.type === 'tool_use' )
 
             if( !hasToolUse || round > maxRounds ) {
+                const textBlocks = content
+                    .filter( ( block: any ) => block.type === 'text' )
+                    .map( ( block: any ) => block.text )
+
+                const finalText = textBlocks.join( '\n' )
+
+                if( toolCallLog.length === 0 && !hasRequestedSubmit && round <= maxRounds ) {
+                    const duration = Date.now() - startTime
+
+                    if( onRoundLog ) { onRoundLog( roundLog ) }
+
+                    const result = {
+                        status: 'elicitation',
+                        query,
+                        result: { text: finalText },
+                        costs: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
+                        metadata: { model, toolCalls: 0, llmRounds: round, duration }
+                    }
+
+                    running = false
+
+                    if( onStatus ) { onStatus( { status: 'completed', round, message: 'Agent needs more info (elicitation)' } ) }
+
+                    return { result }
+                }
+
                 if( !hasRequestedSubmit && toolCallLog.length > 0 && round <= maxRounds ) {
                     hasRequestedSubmit = true
                     messages.push( { role: 'assistant', content } )
@@ -164,11 +190,6 @@ class AgentLoop {
                     continue
                 }
 
-                const textBlocks = content
-                    .filter( ( block: any ) => block.type === 'text' )
-                    .map( ( block: any ) => block.text )
-
-                const finalText = textBlocks.join( '\n' )
                 const duration = Date.now() - startTime
 
                 const result = AgentLoop

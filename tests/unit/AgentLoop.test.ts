@@ -66,12 +66,10 @@ describe( 'AgentLoop', () => {
                 maxTokens: 1024
             } )
 
-        expect( result.status ).toBe( 'success' )
+        expect( result.status ).toBe( 'elicitation' )
         expect( result.query ).toBe( 'What should I buy?' )
         expect( result.metadata.llmRounds ).toBe( 1 )
         expect( result.metadata.toolCalls ).toBe( 0 )
-        expect( result.costs.breakdown ).toHaveLength( 1 )
-        expect( result.costs.breakdown[ 0 ].type ).toBe( 'llm' )
     } )
 
 
@@ -324,7 +322,8 @@ describe( 'AgentLoop', () => {
                 maxTokens: 1024
             } )
 
-        expect( result.result ).toEqual( { key: 'value' } )
+        expect( result.status ).toBe( 'elicitation' )
+        expect( result.result ).toEqual( { text: 'Here is the result:\n```json\n{"key": "value"}\n```' } )
     } )
 
 
