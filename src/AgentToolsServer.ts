@@ -278,7 +278,7 @@ class AgentToolsServer extends EventEmitter {
             }
 
             if( !taskParams ) {
-                const result = await AgentToolsServer.#runSync( { toolConfig, args, llmConfig, toolRegistry, emitter } )
+                const result = await AgentToolsServer.#runSync( { toolConfig, args, llmConfig, toolRegistry, emitter, mcpServer: server } )
 
                 return result
             }
@@ -318,7 +318,7 @@ class AgentToolsServer extends EventEmitter {
     }
 
 
-    static async #runSync( { toolConfig, args, llmConfig, toolRegistry, emitter }: { toolConfig: any, args: any, llmConfig: LLMConfig, toolRegistry: ToolRegistry, emitter?: EventEmitter } ) {
+    static async #runSync( { toolConfig, args, llmConfig, toolRegistry, emitter, mcpServer }: { toolConfig: any, args: any, llmConfig: LLMConfig, toolRegistry: ToolRegistry, emitter?: EventEmitter, mcpServer?: any } ) {
         const { name: toolName, agent } = toolConfig
         const { systemPrompt, model, maxRounds, maxTokens } = agent
         const { baseURL, apiKey } = llmConfig
@@ -358,6 +358,20 @@ class AgentToolsServer extends EventEmitter {
                     baseURL,
                     apiKey,
                     answerSchema: agent.answerSchema || null,
+                    elicitationConfig: toolConfig.elicitation || undefined,
+                    onElicit: mcpServer && toolConfig.elicitation?.enabled
+                        ? async ( { message, requestedSchema }: { message: string, requestedSchema: any } ) => {
+                            try {
+                                const result = await mcpServer.elicitInput( { message, requestedSchema } )
+
+                                return result
+                            } catch( err: any ) {
+                                Logger.error( 'AgentServer', `Elicitation failed: ${err.message}` )
+
+                                return { action: 'cancel' as const }
+                            }
+                        }
+                        : undefined,
                     onStatus: ( { status, round, message }: { status: string, round: number, message: string } ) => {
                         Logger.info( 'AgentServer', `sync | ${toolName} | ${status} | Round ${round} | ${message}` )
 

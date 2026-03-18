@@ -129,6 +129,7 @@ class ToolRegistry {
             inputSchema,
             agent: agentConfig,
             toolSources,
+            elicitation: manifest[ 'elicitation' ] || undefined,
             _manifest: manifest
         }
 
