@@ -3,11 +3,46 @@ import { zodToJsonSchema } from 'zod-to-json-schema'
 import { Logger } from '../logging/Logger.js'
 import { AnthropicProvider } from '../providers/AnthropicProvider.js'
 import { MASError, MAS_ERROR_CODES } from '../errors/MASError.js'
-import type { ToolClient, StatusUpdate, JSONSchema, RoundLog, RoundLogCallback, LLMProvider } from '../types/index.js'
+import type { ToolClient, StatusUpdate, JSONSchema, RoundLog, RoundLogCallback, LLMProvider, ElicitCallback, ElicitationConfig } from '../types/index.js'
 
 
 class AgentLoop {
-    static async start( { query, toolClient, systemPrompt, model, maxRounds, maxTokens, onStatus, onRoundLog, baseURL, apiKey, llmProvider, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds: number, maxTokens: number, onStatus?: ( params: StatusUpdate ) => void, onRoundLog?: RoundLogCallback, baseURL?: string, apiKey?: string, llmProvider?: LLMProvider, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
+    static #buildAskUserTool( { elicitationConfig }: { elicitationConfig: ElicitationConfig } ) {
+        const fieldDescriptions = Object.entries( elicitationConfig.fields )
+            .map( ( [ key, field ] ) => {
+                const hints = field.hints && field.hints.length > 0
+                    ? ` — maps to: ${field.hints.join( ', ' )}`
+                    : ''
+
+                return `- ${key} (${field.title})${hints}`
+            } )
+            .join( '\n' )
+
+        const askUserTool = {
+            name: 'ask_user',
+            description: `Frage den User nach fehlenden Informationen. Nutze dieses Tool wenn du nicht genug Infos hast um die Anfrage zu bearbeiten. Waehle die Felder die dir fehlen aus der Liste.\n\nVerfuegbare Felder:\n${fieldDescriptions}\n\nDer User bekommt ein Formular und kann alles auf einmal beantworten.`,
+            input_schema: {
+                type: 'object',
+                properties: {
+                    message: {
+                        type: 'string',
+                        description: 'Freundliche Nachricht an den User die erklaert was du brauchst'
+                    },
+                    fields: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: `Welche Felder fehlen? Erlaubte Werte: ${Object.keys( elicitationConfig.fields ).join( ', ' )}`
+                    }
+                },
+                required: [ 'message', 'fields' ]
+            }
+        }
+
+        return { askUserTool }
+    }
+
+
+    static async start( { query, toolClient, systemPrompt, model, maxRounds, maxTokens, onStatus, onRoundLog, onElicit, elicitationConfig, baseURL, apiKey, llmProvider, answerSchema = null, discovery = false }: { query: string, toolClient: ToolClient, systemPrompt: string, model: string, maxRounds: number, maxTokens: number, onStatus?: ( params: StatusUpdate ) => void, onRoundLog?: RoundLogCallback, onElicit?: ElicitCallback, elicitationConfig?: ElicitationConfig, baseURL?: string, apiKey?: string, llmProvider?: LLMProvider, answerSchema?: JSONSchema | null, discovery?: boolean } ) {
         if( !query ) {
             throw new MASError( { code: MAS_ERROR_CODES.AGENT_LOOP_ERROR, message: 'query is required' } )
         }
@@ -54,6 +89,15 @@ class AgentLoop {
         if( discovery ) {
             const { discoveryTool } = AgentLoop.#buildDiscoveryTool()
             builtinTools.push( discoveryTool )
+        }
+
+        const askUserToolName = 'ask_user'
+        let elicitationCount = 0
+        const maxElicitations = elicitationConfig?.maxRounds || 3
+
+        if( elicitationConfig?.enabled && onElicit ) {
+            const { askUserTool } = AgentLoop.#buildAskUserTool( { elicitationConfig } )
+            builtinTools.push( askUserTool )
         }
 
         const allTools = [ ...anthropicTools, ...builtinTools ]
@@ -227,6 +271,77 @@ class AgentLoop {
                     const callStart = Date.now()
 
                     try {
+                        if( name === askUserToolName && onElicit && elicitationConfig ) {
+                            const { message: elicitMessage, fields: requestedFields } = input as any
+                            const schemaProperties: Record<string, any> = {};
+
+                            ( requestedFields as string[] || [] ).forEach( ( fieldKey: string ) => {
+                                const fieldDef = elicitationConfig.fields[ fieldKey ]
+
+                                if( fieldDef ) {
+                                    const prop: Record<string, any> = { type: fieldDef.type, title: fieldDef.title }
+
+                                    if( fieldDef.format ) { prop.format = fieldDef.format }
+                                    if( fieldDef.enum ) { prop.enum = fieldDef.enum }
+                                    if( fieldDef.enumNames ) { prop.enumNames = fieldDef.enumNames }
+                                    if( fieldDef.description ) { prop.description = fieldDef.description }
+
+                                    schemaProperties[ fieldKey ] = prop
+                                }
+                            } )
+
+                            const requestedSchema = {
+                                type: 'object',
+                                properties: schemaProperties,
+                                required: requestedFields || []
+                            }
+
+                            elicitationCount++
+
+                            if( onStatus ) { onStatus( { status: 'working', round, message: `Asking user: ${elicitMessage}` } ) }
+
+                            const elicitResult = await onElicit( { message: elicitMessage, requestedSchema } )
+                            const callDuration = Date.now() - callStart
+
+                            if( elicitResult.action === 'accept' && elicitResult.content ) {
+                                const contentParts = Object.entries( elicitResult.content )
+                                    .map( ( [ key, value ] ) => `${key}: ${value}` )
+                                    .join( ', ' )
+
+                                toolCallLog.push( { name, input, duration: callDuration, success: true } )
+
+                                if( elicitationCount >= maxElicitations ) {
+                                    const askUserIndex = allTools.findIndex( ( t: any ) => t.name === askUserToolName )
+                                    if( askUserIndex !== -1 ) { allTools.splice( askUserIndex, 1 ) }
+                                }
+
+                                return {
+                                    type: 'tool_result',
+                                    tool_use_id: id,
+                                    content: `User hat geantwortet: ${contentParts}`
+                                }
+                            }
+
+                            if( elicitResult.action === 'decline' ) {
+                                toolCallLog.push( { name, input, duration: callDuration, success: true } )
+
+                                return {
+                                    type: 'tool_result',
+                                    tool_use_id: id,
+                                    content: 'User moechte diese Information nicht geben. Versuche mit den vorhandenen Infos weiterzumachen.'
+                                }
+                            }
+
+                            toolCallLog.push( { name, input, duration: callDuration, success: false, error: 'User cancelled' } )
+
+                            return {
+                                type: 'tool_result',
+                                tool_use_id: id,
+                                content: 'User hat abgebrochen.',
+                                is_error: true
+                            }
+                        }
+
                         const isDiscovery = name === 'discover_agent'
                         const callResult = isDiscovery
                             ? await AgentLoop.#handleDiscovery( { input } )

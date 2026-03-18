@@ -1,6 +1,34 @@
 export type JSONSchema = Record<string, unknown>
 
 
+export interface ElicitationField {
+    type: 'string' | 'number' | 'integer' | 'boolean'
+    title: string
+    format?: string
+    enum?: string[]
+    enumNames?: string[]
+    hints?: string[]
+    description?: string
+}
+
+
+export interface ElicitationConfig {
+    enabled: boolean
+    maxRounds: number
+    timeout: number
+    fields: Record<string, ElicitationField>
+}
+
+
+export interface ElicitResult {
+    action: 'accept' | 'decline' | 'cancel'
+    content?: Record<string, string | number | boolean | string[]>
+}
+
+
+export type ElicitCallback = ( params: { message: string, requestedSchema: any } ) => Promise<ElicitResult>
+
+
 export interface LLMConfig {
     baseURL: string
     apiKey: string
@@ -139,8 +167,11 @@ export interface AgentLoopParams {
     maxTokens: number
     onStatus?: ( params: StatusUpdate ) => void
     onRoundLog?: RoundLogCallback
+    onElicit?: ElicitCallback
+    elicitationConfig?: ElicitationConfig
     baseURL: string
     apiKey: string
+    llmProvider?: LLMProvider
     answerSchema?: JSONSchema | null
     discovery?: boolean
 }
@@ -176,4 +207,28 @@ export interface ServerConfig {
     version: string
     routePath: string
     elicitation: boolean
+}
+
+
+export interface SessionMessage {
+    role: 'user' | 'assistant'
+    content: string
+    timestamp: string
+}
+
+
+export interface ConversationContext {
+    sessionId: string
+    messages: SessionMessage[]
+    createdAt: string
+    lastActivity: string
+}
+
+
+export interface SessionStoreBackend {
+    get( params: { sessionId: string } ): Promise<ConversationContext | null>
+    set( params: { sessionId: string, context: ConversationContext } ): Promise<void>
+    delete( params: { sessionId: string } ): Promise<void>
+    has( params: { sessionId: string } ): Promise<boolean>
+    cleanup( params: { ttlMs: number } ): Promise<number>
 }

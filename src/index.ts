@@ -11,6 +11,8 @@ export { Logger } from './logging/Logger.js'
 export { DebugWriter } from './logging/DebugWriter.js'
 export { PostMessageBridge } from './ui/PostMessageBridge.js'
 export { AnthropicProvider } from './providers/AnthropicProvider.js'
+export { SessionStore } from './session/SessionStore.js'
+export { InMemorySessionStore } from './session/InMemorySessionStore.js'
 
 export type {
     LLMConfig,
@@ -32,5 +34,12 @@ export type {
     RoundLog,
     RoundLogCallback,
     LLMProvider,
-    LLMResponse
+    LLMResponse,
+    SessionMessage,
+    ConversationContext,
+    SessionStoreBackend,
+    ElicitationConfig,
+    ElicitationField,
+    ElicitResult,
+    ElicitCallback
 } from './types/index.js'
