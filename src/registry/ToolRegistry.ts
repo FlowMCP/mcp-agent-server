@@ -2,7 +2,7 @@ import { InProcessToolClient } from '../client/InProcessToolClient.js'
 import { CompositeToolClient } from '../client/CompositeToolClient.js'
 import { SubAgentToolClient } from '../client/SubAgentToolClient.js'
 import { Logger } from '../logging/Logger.js'
-import type { ToolClient } from '../types/index.js'
+import type { ToolClient, ElicitCallback } from '../types/index.js'
 
 
 class ToolRegistry {
@@ -55,7 +55,7 @@ class ToolRegistry {
     }
 
 
-    async createToolClient( { name }: { name: string } ): Promise<{ toolClient: ToolClient | null }> {
+    async createToolClient( { name, onElicit }: { name: string, onElicit?: ElicitCallback } ): Promise<{ toolClient: ToolClient | null }> {
         const { toolConfig } = this.getToolConfig( { name } )
 
         if( !toolConfig ) {
@@ -75,7 +75,7 @@ class ToolRegistry {
                 const client = ToolRegistry.#createClientFromSource( { source } )
 
                 if( client && ( client as any ).connect ) {
-                    await ( client as any ).connect()
+                    await ( client as any ).connect( { onElicit } )
                 }
 
                 return client

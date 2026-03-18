@@ -325,7 +325,21 @@ class AgentToolsServer extends EventEmitter {
         const taskId = randomUUID()
         const query = args.query || JSON.stringify( args )
 
-        const { toolClient } = await toolRegistry.createToolClient( { name: toolName } )
+        const onElicit = mcpServer && toolConfig.elicitation?.enabled
+            ? async ( { message, requestedSchema }: { message: string, requestedSchema: any } ) => {
+                try {
+                    const result = await mcpServer.elicitInput( { message, requestedSchema } )
+
+                    return result
+                } catch( err: any ) {
+                    Logger.error( 'AgentServer', `Elicitation failed: ${err.message}` )
+
+                    return { action: 'cancel' as const }
+                }
+            }
+            : undefined
+
+        const { toolClient } = await toolRegistry.createToolClient( { name: toolName, onElicit } )
 
         if( !toolClient ) {
             return {
@@ -359,19 +373,7 @@ class AgentToolsServer extends EventEmitter {
                     apiKey,
                     answerSchema: agent.answerSchema || null,
                     elicitationConfig: toolConfig.elicitation || undefined,
-                    onElicit: mcpServer && toolConfig.elicitation?.enabled
-                        ? async ( { message, requestedSchema }: { message: string, requestedSchema: any } ) => {
-                            try {
-                                const result = await mcpServer.elicitInput( { message, requestedSchema } )
-
-                                return result
-                            } catch( err: any ) {
-                                Logger.error( 'AgentServer', `Elicitation failed: ${err.message}` )
-
-                                return { action: 'cancel' as const }
-                            }
-                        }
-                        : undefined,
+                    onElicit,
                     onStatus: ( { status, round, message }: { status: string, round: number, message: string } ) => {
                         Logger.info( 'AgentServer', `sync | ${toolName} | ${status} | Round ${round} | ${message}` )
 

@@ -1,7 +1,9 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 
-import type { ToolClient, Tool, ToolResult } from '../types/index.js'
+import { Logger } from '../logging/Logger.js'
+import type { ToolClient, Tool, ToolResult, ElicitCallback } from '../types/index.js'
 
 
 class SubAgentToolClient implements ToolClient {
@@ -11,6 +13,7 @@ class SubAgentToolClient implements ToolClient {
     #name: string
     #tools: Map<string, Tool>
     #connected: boolean
+    #onElicit: ElicitCallback | null
 
 
     constructor( { url, name = 'sub-agent' }: { url: string, name?: string } ) {
@@ -20,10 +23,13 @@ class SubAgentToolClient implements ToolClient {
         this.#connected = false
         this.#client = null
         this.#transport = null
+        this.#onElicit = null
     }
 
 
-    async connect() {
+    async connect( { onElicit }: { onElicit?: ElicitCallback } = {} ) {
+        this.#onElicit = onElicit || null
+
         this.#transport = new StreamableHTTPClientTransport(
             new URL( this.#url )
         )
@@ -32,6 +38,23 @@ class SubAgentToolClient implements ToolClient {
             { name: `main-agent-client-${this.#name}`, version: '1.0.0' },
             { capabilities: {} }
         )
+
+        if( this.#onElicit ) {
+            const elicitCallback = this.#onElicit
+
+            this.#client.setRequestHandler( ElicitRequestSchema, async ( request: any ) => {
+                const { message, requestedSchema } = request.params
+
+                Logger.debug( 'SubAgentToolClient', `Elicitation request from sub-agent "${this.#name}": ${message}` )
+
+                const response = await elicitCallback( { message, requestedSchema } )
+
+                return {
+                    action: response.action,
+                    content: response.content
+                }
+            } )
+        }
 
         await this.#client.connect( this.#transport )
         this.#connected = true
