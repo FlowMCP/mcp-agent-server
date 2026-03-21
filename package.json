@@ -17,6 +17,7 @@
     },
     "scripts": {
         "build": "tsc",
+        "prepare": "npm run build",
         "prepublishOnly": "npm run build",
         "test": "vitest run",
         "test:watch": "vitest",
@@ -31,7 +32,7 @@
         "@modelcontextprotocol/ext-apps": "^1.2.2",
         "@modelcontextprotocol/sdk": "^1.26.0",
         "express": "^4.21.0",
-        "flowmcp": "github:FlowMCP/flowmcp-core#2795d0c"
+        "flowmcp": "github:FlowMCP/flowmcp-core#9dfacc6459bb9916d95f1df3e8ca3b56926a2fac"
     },
     "peerDependencies": {
         "express": "^4.21.0"
