@@ -1,4 +1,4 @@
-[![Test](https://img.shields.io/github/actions/workflow/status/flowmcp/mcp-agent-server/test-on-release.yml)]() ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+[![Test](https://img.shields.io/github/actions/workflow/status/FlowMCP/mcp-agent-server/test-on-release.yml)]() ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 # mcp-agent-server
 
@@ -23,7 +23,7 @@ flowchart LR
 ## Quickstart
 
 ```bash
-git clone https://github.com/flowmcp/mcp-agent-server.git
+git clone https://github.com/FlowMCP/mcp-agent-server.git
 cd mcp-agent-server
 npm i
 ```
