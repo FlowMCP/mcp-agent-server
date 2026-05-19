@@ -303,7 +303,7 @@ app.listen( 4100 )
 
 ## Documentation
 
-Full FlowMCP documentation at [docs.flowmcp.org](https://docs.flowmcp.org). See the [Agent Server page](https://docs.flowmcp.org/ecosystem/agent-server) for integration guides.
+Full FlowMCP documentation at [flowmcp.github.io](https://flowmcp.github.io). See the [Agent Server page](https://flowmcp.github.io/docs/ecosystem/agent-server/) for integration guides.
 
 ## License
 
