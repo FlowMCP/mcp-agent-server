@@ -26,6 +26,17 @@
     },
     "author": "FlowMCP",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/FlowMCP/mcp-agent-server.git"
+    },
+    "bugs": {
+        "url": "https://github.com/FlowMCP/mcp-agent-server/issues"
+    },
+    "homepage": "https://github.com/FlowMCP/mcp-agent-server#readme",
+    "engines": {
+        "node": ">=22"
+    },
     "dependencies": {
         "@a2a-js/sdk": "^0.3.12",
         "@anthropic-ai/sdk": "^0.39.0",
