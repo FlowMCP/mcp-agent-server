@@ -2,6 +2,8 @@
 
 # mcp-agent-server
 
+**Version:** 2.0.0
+
 MCP Server with agent-powered tools, mountable as Express middleware. Each tool starts an LLM Agent Loop that iteratively calls FlowMCP schema tools to solve problems.
 
 ## Architecture
@@ -56,7 +58,7 @@ const { mcp } = await AgentToolsServer.create( {
             },
             agent: {
                 systemPrompt: 'You are a DeFi research agent.',
-                model: 'anthropic/claude-sonnet-4-5-20250929',
+                model: 'anthropic/claude-sonnet-4-6',
                 maxRounds: 10,
                 maxTokens: 4096
             },
@@ -223,7 +225,7 @@ Each tool in the `tools` array has the following structure:
 | Key | Type | Description | Required |
 |-----|------|-------------|----------|
 | systemPrompt | string | System prompt for the LLM | Yes |
-| model | string | LLM model ID (e.g. `'anthropic/claude-sonnet-4-5-20250929'`) | Yes |
+| model | string | LLM model ID (e.g. `'anthropic/claude-sonnet-4-6'`) | Yes |
 | maxRounds | number | Maximum agent iterations. Default `10` | No |
 | maxTokens | number | Max completion tokens. Default `4096` | No |
 | answerSchema | object | Custom JSON Schema for `submit_answer` tool | No |
