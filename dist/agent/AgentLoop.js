@@ -14,18 +14,18 @@ class AgentLoop {
             .join('\n');
         const askUserTool = {
             name: 'ask_user',
-            description: `Frage den User nach fehlenden Informationen. Nutze dieses Tool wenn du nicht genug Infos hast um die Anfrage zu bearbeiten. Waehle die Felder die dir fehlen aus der Liste.\n\nVerfuegbare Felder:\n${fieldDescriptions}\n\nDer User bekommt ein Formular und kann alles auf einmal beantworten.`,
+            description: `Ask the user for missing information. Use this tool when you do not have enough info to handle the request. Pick the missing fields from the list.\n\nAvailable fields:\n${fieldDescriptions}\n\nThe user gets a form and can answer everything at once.`,
             input_schema: {
                 type: 'object',
                 properties: {
                     message: {
                         type: 'string',
-                        description: 'Freundliche Nachricht an den User die erklaert was du brauchst'
+                        description: 'Friendly message to the user explaining what you need'
                     },
                     fields: {
                         type: 'array',
                         items: { type: 'string' },
-                        description: `Welche Felder fehlen? Erlaubte Werte: ${Object.keys(elicitationConfig.fields).join(', ')}`
+                        description: `Which fields are missing? Allowed values: ${Object.keys(elicitationConfig.fields).join(', ')}`
                     }
                 },
                 required: ['message', 'fields']
@@ -276,7 +276,7 @@ class AgentLoop {
                             return {
                                 type: 'tool_result',
                                 tool_use_id: id,
-                                content: 'User moechte diese Information nicht geben. Versuche mit den vorhandenen Infos weiterzumachen.'
+                                content: 'User does not want to provide this information. Try to continue with the available info.'
                             };
                         }
                         toolCallLog.push({ name, input, duration: callDuration, success: false, error: 'User cancelled' });

@@ -52,7 +52,7 @@ vi.mock( '@modelcontextprotocol/sdk/experimental/tasks/interfaces.js', () => {
 vi.mock( 'flowmcp', () => {
     return {
         FlowMCP: {
-            loadSchema: vi.fn().mockResolvedValue( { main: { version: '3.0.0', namespace: 'mock', tools: {} }, handlerMap: {} } ),
+            loadSchema: vi.fn().mockResolvedValue( { main: { version: '4.0.0', namespace: 'mock', tools: {} }, handlerMap: {} } ),
             prepareServerTool: vi.fn().mockReturnValue( {
                 toolName: 'mock_tool',
                 description: 'Mock',

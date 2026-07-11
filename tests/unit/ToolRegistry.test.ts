@@ -3,7 +3,7 @@ import { describe, test, expect, vi } from 'vitest'
 
 const { mockLoadSchema, mockPrepareServerTool } = vi.hoisted( () => {
     return {
-        mockLoadSchema: vi.fn().mockResolvedValue( { main: { version: '3.0.0', namespace: 'mock', tools: {} }, handlerMap: {} } ),
+        mockLoadSchema: vi.fn().mockResolvedValue( { main: { version: '4.0.0', namespace: 'mock', tools: {} }, handlerMap: {} } ),
         mockPrepareServerTool: vi.fn()
     }
 } )
@@ -193,7 +193,7 @@ describe( 'ToolRegistry', () => {
             mockPrepareServerTool.mockReset()
 
             mockLoadSchema.mockResolvedValue( {
-                main: { version: '3.0.0', namespace: 'defilama', tools: { getProtocols: { description: 'Get protocols' } } },
+                main: { version: '4.0.0', namespace: 'defilama', tools: { getProtocols: { description: 'Get protocols' } } },
                 handlerMap: {}
             } )
 
@@ -263,8 +263,8 @@ describe( 'ToolRegistry', () => {
                     inputSchema: { type: 'object', properties: {} },
                     agent: { systemPrompt: 'Test', model: 'test', maxRounds: 1, maxTokens: 1024 },
                     toolSources: [
-                        { type: 'flowmcp', schemas: [ { version: '3.0.0', namespace: 'api-a', tools: { getA: {} } } ] },
-                        { type: 'flowmcp', schemas: [ { version: '3.0.0', namespace: 'api-b', tools: { getB: {} } } ] }
+                        { type: 'flowmcp', schemas: [ { version: '4.0.0', namespace: 'api-a', tools: { getA: {} } } ] },
+                        { type: 'flowmcp', schemas: [ { version: '4.0.0', namespace: 'api-b', tools: { getB: {} } } ] }
                     ]
                 }
             ]

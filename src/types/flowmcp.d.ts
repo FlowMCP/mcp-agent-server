@@ -7,7 +7,7 @@ declare module 'flowmcp' {
         } ): Promise<{
             main: any
             handlerMap: any
-            hasHandlers: boolean
+            resourceHandlerMap?: any
         }>
 
         static fetch( params: {
@@ -23,22 +23,6 @@ declare module 'flowmcp' {
             handlerMap: any
             serverParams: Record<string, string>
             routeName: string
-        } ): {
-            toolName: string
-            description: string
-            zod: any
-            func: ( args: any ) => Promise<any>
-        }
-    }
-}
-
-declare module 'flowmcp/v1' {
-    export class FlowMCP {
-        static prepareServerTool( params: {
-            schema: any
-            serverParams: Record<string, string>
-            routeName: string
-            validate?: boolean
         } ): {
             toolName: string
             description: string

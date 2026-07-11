@@ -19,10 +19,10 @@ class InProcessToolClient {
     async #loadSchemas({ schemaPaths, serverParams }) {
         for (const schemaPath of schemaPaths) {
             const { main, handlerMap } = await FlowMCP.loadSchema({ filePath: schemaPath });
-            if (!main.version || !main.version.startsWith('3.')) {
+            if (!main.version || !/^4\.\d+\.\d+$/.test(main.version)) {
                 throw new MASError({
                     code: MAS_ERROR_CODES.SCHEMA_VERSION,
-                    message: `Schema "${schemaPath}" is not v3. Found version: ${main.version || 'undefined'}`,
+                    message: `Schema "${schemaPath}" is not v4 (expected version 4.x.y). Found version: ${main.version || 'undefined'}`,
                     details: { schemaPath, version: main.version }
                 });
             }
@@ -39,10 +39,10 @@ class InProcessToolClient {
             const main = schema;
             const rawHandlers = schema.handlers || {};
             const handlerMap = typeof rawHandlers === 'function' ? rawHandlers({ sharedLists: {}, libraries: {} }) : rawHandlers;
-            if (!main.version || !main.version.startsWith('3.')) {
+            if (!main.version || !/^4\.\d+\.\d+$/.test(main.version)) {
                 throw new MASError({
                     code: MAS_ERROR_CODES.SCHEMA_VERSION,
-                    message: `Schema "${main.namespace}" is not v3. Found version: ${main.version || 'undefined'}`,
+                    message: `Schema "${main.namespace}" is not v4 (expected version 4.x.y). Found version: ${main.version || 'undefined'}`,
                     details: { namespace: main.namespace, version: main.version }
                 });
             }

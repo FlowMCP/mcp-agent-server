@@ -76,7 +76,7 @@ vi.mock( '@modelcontextprotocol/sdk/experimental/tasks/interfaces.js', () => {
 
 const { mockLoadSchema, mockPrepareServerTool } = vi.hoisted( () => {
     return {
-        mockLoadSchema: vi.fn().mockResolvedValue( { main: { version: '3.0.0', namespace: 'mock', tools: {} }, handlerMap: {} } ),
+        mockLoadSchema: vi.fn().mockResolvedValue( { main: { version: '4.0.0', namespace: 'mock', tools: {} }, handlerMap: {} } ),
         mockPrepareServerTool: vi.fn().mockReturnValue( {
             toolName: 'mock_tool',
             description: 'Mock',

@@ -23,12 +23,12 @@ import { InProcessToolClient } from '../../src/client/InProcessToolClient.js'
 describe( 'InProcessToolClient', () => {
 
     describe( 'create', () => {
-        test( 'loads v3 schemas and prepares tools', async () => {
+        test( 'loads v4 schemas and prepares tools', async () => {
             mockLoadSchema.mockReset()
             mockPrepareServerTool.mockReset()
 
             mockLoadSchema.mockResolvedValueOnce( {
-                main: { version: '3.0.0', namespace: 'test', tools: { getList: { description: 'Get list' } } },
+                main: { version: '4.0.0', namespace: 'test', tools: { getList: { description: 'Get list' } } },
                 handlerMap: {}
             } )
 
@@ -60,7 +60,7 @@ describe( 'InProcessToolClient', () => {
 
             await expect(
                 InProcessToolClient.create( { schemaPaths: [ '/path/to/old.mjs' ] } )
-            ).rejects.toThrow( 'not v3' )
+            ).rejects.toThrow( 'not v4' )
         } )
 
 
@@ -75,7 +75,7 @@ describe( 'InProcessToolClient', () => {
 
             await expect(
                 InProcessToolClient.create( { schemaPaths: [ '/path/to/noversion.mjs' ] } )
-            ).rejects.toThrow( 'not v3' )
+            ).rejects.toThrow( 'not v4' )
         } )
 
 
@@ -85,11 +85,11 @@ describe( 'InProcessToolClient', () => {
 
             mockLoadSchema
                 .mockResolvedValueOnce( {
-                    main: { version: '3.0.0', namespace: 'a', tools: { getA: { description: 'A' } } },
+                    main: { version: '4.0.0', namespace: 'a', tools: { getA: { description: 'A' } } },
                     handlerMap: {}
                 } )
                 .mockResolvedValueOnce( {
-                    main: { version: '3.0.0', namespace: 'b', tools: { getB: { description: 'B' } } },
+                    main: { version: '4.0.0', namespace: 'b', tools: { getB: { description: 'B' } } },
                     handlerMap: {}
                 } )
 
@@ -117,7 +117,7 @@ describe( 'InProcessToolClient', () => {
             mockPrepareServerTool.mockReset()
 
             mockLoadSchema.mockResolvedValueOnce( {
-                main: { version: '3.0.0', namespace: 'test', tools: { getA: { description: 'A' }, getB: { description: 'B' } } },
+                main: { version: '4.0.0', namespace: 'test', tools: { getA: { description: 'A' }, getB: { description: 'B' } } },
                 handlerMap: {}
             } )
 
@@ -156,7 +156,7 @@ describe( 'InProcessToolClient', () => {
             } )
 
             mockLoadSchema.mockResolvedValueOnce( {
-                main: { version: '3.0.0', namespace: 'test', tools: { getData: { description: 'Get data' } } },
+                main: { version: '4.0.0', namespace: 'test', tools: { getData: { description: 'Get data' } } },
                 handlerMap: {}
             } )
 
